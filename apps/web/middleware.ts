@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-const PUBLIC = ["/login", "/auth/callback", "/auth/signout"];
+const PUBLIC = ["/login", "/auth/signout"];
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
   const sb = createServerClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {

@@ -30,7 +30,7 @@ Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis compl
 - Retención del log de Meta: ~90 días. Nuestra base es la fuente de verdad después del backfill.
 - Token de Meta: token de usuario extendido (60 días), vence 2026-11-02. Renovar antes y actualizar el secreto en GitHub. Producción ideal: System User que no expira.
 - Supabase: proyecto `agentes-meta`, ref `njkyghbgquaqzzaylmwl`, plan Free. Migraciones en `packages/db/migrations/` y aplicadas vía MCP; mantener ambos en sincronía.
-- Personas que operan la cuenta (aparecen como actores): Eduardo Torres, Tavo Cortez Vera, Josué Suárez, Jeshua Acosta. Usuarios de la app: jeshualapizco@gmail.com, jeshua@aromante.mx (admin), ernesto@aromante.mx, josue@aromante.mx.
+- Personas que operan la cuenta (aparecen como actores): Eduardo Torres, Tavo Cortez Vera, Josué Suárez, Jeshua Acosta. Usuarios de la app: jeshualapizco@gmail.com, jeshua@aromante.mx (admin), ernesto@aromante.mx, josue@aromante.mx. Acceso por usuario y contraseña (Supabase Auth); los admins crean usuarios en `/usuarios` vía API de administración (`apps/web/lib/admin.ts`). No usar enlace mágico: el SMTP integrado limita a pocos correos por hora.
 - Dayparting nativo de Meta solo funciona con presupuesto total (lifetime). Con presupuesto diario, solo se recomienda.
 - Ideas adoptadas de Testmia (ver benchmark): candados codificados, modos off/semi/auto, ventanas de evaluación 72h/7d/14d, experimentos con criterio de éxito previo, freno de emergencia manual, "cada error vuelve como regla".
 

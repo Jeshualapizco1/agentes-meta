@@ -3,6 +3,8 @@
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
 ## Bloqueado por el usuario
+- [ ] Dar de alta a Ernesto y Josué en https://bitacora-aromante.netlify.app/usuarios con sus contraseñas.
+- [ ] Rotar el token personal de Supabase y la contraseña admin, ambos pegados en el chat.
 - [x] Perfil de Aromante 1 capturado en la app (margen 30%, equilibrio 2.5, objetivo 6, CPA 170, techo 15,000, piso 9,000, cambio máx. 17%).
 - [ ] Decidir canal de alertas (WhatsApp, Slack o email) y credenciales.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
@@ -15,7 +17,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] Insights por hora (base del dayparting) en el collector; trasladar Mazatlán → CDMX.
 - [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector ya disponible).
 - [ ] Vista por anuncio con miniatura y "anuncios sin revisar".
-- [ ] Probar el enlace mágico con un correo real (el SMTP integrado de Supabase permite pocos correos por hora; para producción configurar SMTP propio).
+- [x] Acceso cambiado a usuario y contraseña (el enlace mágico chocó con el límite de correos de Supabase). Admin: jeshua@aromante.mx. Alta de usuarios en /usuarios (solo administradores).
 - [ ] Verificar que el cron de GitHub Actions corrió solo a las 00:00 CDMX (revisar en /estado o `gh run list --workflow=collector`).
 
 ## Hecho (últimas sesiones)
