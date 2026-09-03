@@ -9,7 +9,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 
 ## Siguiente sesión
 - [x] Desplegada en Netlify: https://bitacora-aromante.netlify.app (ver docs/04-deploy-web.md).
-- [ ] **Usuario:** en Supabase → Authentication → URL Configuration poner Site URL `https://bitacora-aromante.netlify.app` y agregar Redirect URL `https://bitacora-aromante.netlify.app/auth/callback` (y la de localhost). Sin esto el enlace mágico no funciona en producción.
+- [x] Supabase Auth: Site URL y Redirect URLs de producción y localhost configuradas por API (2026-09-03). Token personal en `.env` como `SUPABASE_ACCESS_TOKEN`; reusar `scripts/supabase-auth-urls.mjs` si cambia el dominio.
 - [ ] Capturar la lista blanca de campañas y los noes duros en Configuración (el resto del perfil ya está).
 - [ ] Vista de nomenclatura con entidades que tienen `issues`.
 - [ ] Insights por hora (base del dayparting) en el collector; trasladar Mazatlán → CDMX.
