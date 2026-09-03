@@ -1,0 +1,30 @@
+name: collector
+on:
+  schedule:
+    - cron: "0 0,6,12,18 * * *"   # UTC → 18:00, 00:00, 06:00, 12:00 CDMX (UTC-6 fijo). La de 06:00 UTC es la consolidación de medianoche CDMX
+  workflow_dispatch:
+    inputs:
+      accounts: { description: "IDs de cuenta separados por coma (vacío = todas)", required: false, default: "" }
+      days: { description: "Días de backfill si la cuenta está vacía", required: false, default: "90" }
+concurrency: { group: collector, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: collector
+        working-directory: packages/agents
+        env:
+          META_TOKEN_AROMANTE: ${{ secrets.META_TOKEN_AROMANTE }}
+          META_API_VERSION: v23.0
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          ACC="${{ github.event.inputs.accounts }}"
+          ../../node_modules/.bin/tsx src/cli.ts collector --trigger=${{ github.event_name == 'schedule' && 'schedule' || 'manual' }} --days=${{ github.event.inputs.days || '90' }} ${ACC:+--accounts=$ACC}
