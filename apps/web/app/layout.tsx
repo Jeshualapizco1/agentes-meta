@@ -15,6 +15,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <nav className="flex gap-4 text-sm text-muted">
               <Link href="/bitacora" className="hover:text-ink">Bitácora</Link>
               <Link href="/cuenta" className="hover:text-ink">Cuenta</Link>
+              <Link href="/horarios" className="hover:text-ink">Horarios</Link>
               <Link href="/configuracion" className="hover:text-ink">Configuración</Link>
               <Link href="/usuarios" className="hover:text-ink">Usuarios</Link>
               <Link href="/estado" className="hover:text-ink">Estado del sistema</Link>

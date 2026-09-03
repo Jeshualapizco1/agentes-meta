@@ -10,13 +10,14 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
 
 ## Siguiente sesión
+- [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector disponible). Es lo que falta para cerrar la Fase 2.
+- [ ] Vista por anuncio con miniatura y "anuncios sin revisar"; vista de nomenclatura.
+- [ ] Fase 3: ventanas de evaluación 72h/7d/14d por sesión de cambios y agente semanal.
 - [x] Desplegada en Netlify: https://bitacora-aromante.netlify.app (ver docs/04-deploy-web.md).
 - [x] Supabase Auth: Site URL y Redirect URLs de producción y localhost configuradas por API (2026-09-03). Token personal en `.env` como `SUPABASE_ACCESS_TOKEN`; reusar `scripts/supabase-auth-urls.mjs` si cambia el dominio.
 - [ ] Capturar la lista blanca de campañas y los noes duros en Configuración (el resto del perfil ya está).
 - [ ] Vista de nomenclatura con entidades que tienen `issues`.
-- [ ] Insights por hora (base del dayparting) en el collector; trasladar Mazatlán → CDMX.
-- [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector ya disponible).
-- [ ] Vista por anuncio con miniatura y "anuncios sin revisar".
+- [x] Insights por hora en el collector (28 días cargados; 7 días en cada corrida) y pantalla Horarios con mapa día × hora en CDMX, regla de evidencia mínima y bloques mejores/peores.
 - [x] Acceso cambiado a usuario y contraseña (el enlace mágico chocó con el límite de correos de Supabase). Admin: jeshua@aromante.mx. Alta de usuarios en /usuarios (solo administradores).
 - [ ] Verificar que el cron de GitHub Actions corrió solo a las 00:00 CDMX (revisar en /estado o `gh run list --workflow=collector`).
 

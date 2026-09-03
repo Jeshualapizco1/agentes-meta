@@ -9,8 +9,9 @@ import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
+import { ingestHourly } from "./hourly.js";
 
-export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
+export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; hourlyDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
 
 export async function runCollector(o: CollectorOptions): Promise<void> {
   const log = o.log ?? console.log;
@@ -92,7 +93,10 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   // 4. Insights diarios (Fase 2). Falla por separado para no perder la bitácora.
   let insights: Record<string, number> = {};
   if (!o.skipInsights) {
-    try { insights = await ingestInsights(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.insightsDays ?? 14 }); }
+    try {
+      insights = await ingestInsights(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.insightsDays ?? 14 });
+      Object.assign(insights, await ingestHourly(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.hourlyDays ?? 7 }));
+    }
     catch (e) { const msg = e instanceof Error ? e.message : String(e); await db.from("alerts").insert({ account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
   }
 
