@@ -1,0 +1,4 @@
+{ "name": "@agentes-meta/web", "version": "0.1.0", "private": true,
+  "scripts": { "dev": "next dev -p 3000", "build": "next build", "start": "next start -p 3000", "typecheck": "tsc --noEmit" },
+  "dependencies": { "next": "^15.5.0", "react": "^19.1.0", "react-dom": "^19.1.0", "@supabase/supabase-js": "^2.58.0", "@agentes-meta/core": "workspace:*" },
+  "devDependencies": { "@types/react": "^19.1.0", "@types/react-dom": "^19.1.0", "tailwindcss": "^4.1.0", "@tailwindcss/postcss": "^4.1.0", "postcss": "^8.5.0" } }
