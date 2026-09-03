@@ -14,6 +14,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Link href="/bitacora" className="font-serif text-xl font-semibold">Agentes Meta</Link>
             <nav className="flex gap-4 text-sm text-muted">
               <Link href="/bitacora" className="hover:text-ink">Bitácora</Link>
+              <Link href="/cuenta" className="hover:text-ink">Cuenta</Link>
               <Link href="/estado" className="hover:text-ink">Estado del sistema</Link>
             </nav>
             <span className="ml-auto font-mono text-[11px] uppercase tracking-wider text-muted">Hora CDMX</span>

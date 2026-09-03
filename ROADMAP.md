@@ -17,17 +17,17 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - [x] App: timeline por día con filtros, detalle de sesión, anotación de razón/hipótesis/criterio, estado del sistema
 - [x] Días sin cambios reportados explícitamente
 - [x] Cron cada 6 h (GitHub Actions) con consolidación 00:00 CDMX — repo y secretos listos 2026-09-03
-- [ ] Autenticación: enlace mágico de Supabase Auth restringido a `app_users`
+- [x] Autenticación: enlace mágico de Supabase Auth restringido a `app_users` (RLS activo en todas las tablas)
 - [ ] Alertas por WhatsApp/Slack/email de fallos del collector y cuenta deshabilitada
 - [ ] Vista de nomenclatura: entidades con issues
 - [ ] Criterio de éxito: todo cambio del Ads Manager aparece al día siguiente con hora CDMX, responsable y antes/después
 
 ## Fase 2 · Métricas y contexto (semanas 3-4)
-- [ ] Insights diarios por campaña/ad set/anuncio, últimos 14 días con reexpresión (`insights_daily` + historial)
+- [x] Insights diarios por campaña/ad set/anuncio, últimos 14 días con reexpresión (`insights_daily` + historial)
 - [ ] Insights por hora (zona de cuenta → CDMX)
 - [ ] Ventas netas de Shopify, MER, clientes nuevos, CAC, AOV, recompra, top productos
-- [ ] Regla de día cerrado + insignias de madurez y cobertura en cada métrica
-- [ ] Gráficas con los cambios marcados sobre ROAS, CPA y gasto (la vista "extremadamente visual")
+- [~] Regla de día cerrado (hecha en ingesta y vista Cuenta) + insignias de madurez y cobertura en cada métrica (pendiente)
+- [x] Gráficas con los cambios marcados sobre ROAS, CPA y gasto (vista Cuenta, v1)
 - [ ] Vista por anuncio con miniatura y contador de "anuncios sin revisar"
 - [ ] Panel "Hoy": gasto de ayer vs. techo, últimos cambios, propuestas pendientes, cambios de la semana
 - [ ] Criterio: ver cualquier cambio y su "después" en una sola pantalla

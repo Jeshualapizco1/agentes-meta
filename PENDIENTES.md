@@ -8,13 +8,16 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
 
 ## Siguiente sesión
-- [ ] Autenticación con enlace mágico (Supabase Auth) limitada a `app_users`; proteger `/bitacora`, `/sesion`, `/estado`.
+- [ ] Desplegar la app (Vercel) para que el equipo la vea sin correrla en local. Al desplegar: agregar la URL pública en Supabase → Authentication → URL Configuration (Site URL y Redirect URLs) y en `APP_URL`.
 - [ ] Vista de nomenclatura con entidades que tienen `issues`.
-- [ ] Fase 2: ingesta de `insights_daily` (campaña, ad set, anuncio; 14 días con reexpresión) en el collector.
-- [ ] Desplegar la app (Vercel) para que el equipo la vea sin correrla en local.
+- [ ] Insights por hora (base del dayparting) en el collector; trasladar Mazatlán → CDMX.
+- [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector ya disponible).
+- [ ] Vista por anuncio con miniatura y "anuncios sin revisar".
+- [ ] Probar el enlace mágico con un correo real (el SMTP integrado de Supabase permite pocos correos por hora; para producción configurar SMTP propio).
 - [ ] Verificar que el cron de GitHub Actions corrió solo a las 00:00 CDMX (revisar en /estado o `gh run list --workflow=collector`).
 
 ## Hecho (últimas sesiones)
+- 2026-09-03 (tarde) · Repo GitHub + cron activo y probado desde la nube; login con enlace mágico y RLS; ingesta de insights diarios con reexpresión; vista Cuenta con gasto/ROAS/CPA y cambios marcados; CLAUDE.md, ROADMAP.md, PENDIENTES.md.
 - 2026-09-03 · Análisis de viabilidad, benchmark Testmia, esquema Supabase, backfill 90 días, paquete core con 13 pruebas, collector idempotente, app web (timeline, detalle con anotaciones, estado), workflow cron, README, CLAUDE.md, ROADMAP.md.
 
 ## Bloqueos y notas
