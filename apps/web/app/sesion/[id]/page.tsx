@@ -1,13 +1,13 @@
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { fmtDay, fmtTime, KIND_LABEL, mxn } from "@/lib/format";
 import { Chip } from "@/components/Chip";
 import { notFound } from "next/navigation";
 import { annotate } from "./actions";
-import { currentUser } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function Sesion({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const sb = db(); const user = await currentUser();
+  const { id } = await params; const user = await requireUser(`/sesion/${id}`); const sb = db();
   const { data: s } = await sb.from("change_sessions").select("*").eq("id", id).maybeSingle();
   if (!s) notFound();
   const [{ data: groups }, { data: notes }, { data: acc }] = await Promise.all([

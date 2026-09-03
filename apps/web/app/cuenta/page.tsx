@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { fmtTime } from "@/lib/format";
 import { TimeSeries, type Marker, type Point } from "@/components/TimeSeries";
 import { Chip } from "@/components/Chip";
@@ -8,7 +9,7 @@ const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
 const CDMX_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City", year: "numeric", month: "2-digit", day: "2-digit" });
 
 export default async function Cuenta({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const p = await searchParams; const sb = db();
+  const p = await searchParams; await requireUser("/cuenta"); const sb = db();
   const days = Number(p.days ?? 30);
   const { data: accounts } = await sb.from("accounts").select("id,name,timezone_name").eq("enabled", true).order("name");
   const accountId = p.account ?? "1703313583465547";

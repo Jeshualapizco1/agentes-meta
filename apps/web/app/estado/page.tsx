@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { fmtDay, fmtTime } from "@/lib/format";
 import { Chip } from "@/components/Chip";
 export const dynamic = "force-dynamic";
 export default async function Estado() {
-  const sb = db();
+  await requireUser("/estado"); const sb = db();
   const [{ data: runs }, { data: alerts }, { data: accounts }] = await Promise.all([
     sb.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(30),
     sb.from("alerts").select("*").is("acknowledged_at", null).order("created_at", { ascending: false }).limit(30),

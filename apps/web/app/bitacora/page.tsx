@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { fmtDay, dayKey } from "@/lib/format";
 import { Filters } from "@/components/Filters";
 import { SessionRow, type Session } from "@/components/SessionRow";
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Bitacora({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
+  await requireUser("/bitacora");
   const sb = db();
   const days = Number(params.days ?? 14);
   const since = new Date(Date.now() - days * 86400_000).toISOString();

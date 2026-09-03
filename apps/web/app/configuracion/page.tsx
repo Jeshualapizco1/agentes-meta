@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { saveProfile } from "./actions";
 import { Chip } from "@/components/Chip";
 import { fmtDay, fmtTime } from "@/lib/format";
@@ -15,7 +16,7 @@ function Field({ name, label, help, value, unit, step = "any" }: { name: string;
 }
 
 export default async function Configuracion({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const p = await searchParams; const sb = db();
+  const p = await searchParams; await requireUser("/configuracion"); const sb = db();
   const { data: accounts } = await sb.from("accounts").select("id,name").eq("enabled", true).order("name");
   const accountId = p.account ?? "1703313583465547";
   const [{ data: prof }, { data: camps }, { data: history }] = await Promise.all([
