@@ -3,10 +3,11 @@ import { fmtDay, fmtTime, KIND_LABEL, mxn } from "@/lib/format";
 import { Chip } from "@/components/Chip";
 import { notFound } from "next/navigation";
 import { annotate } from "./actions";
+import { currentUser } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function Sesion({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; const sb = db();
+  const { id } = await params; const sb = db(); const user = await currentUser();
   const { data: s } = await sb.from("change_sessions").select("*").eq("id", id).maybeSingle();
   if (!s) notFound();
   const [{ data: groups }, { data: notes }, { data: acc }] = await Promise.all([
@@ -29,10 +30,10 @@ export default async function Sesion({ params }: { params: Promise<{ id: string 
       <section className="rounded-md border border-line bg-surface p-4">
         <h2 className="font-semibold">¿Por qué se hizo este cambio?</h2>
         <p className="text-sm text-muted">La bitácora sabe qué pasó; solo quien lo hizo sabe por qué. Una línea basta. Si es una prueba, di qué esperas ver y en cuánto tiempo.</p>
-        {(notes ?? []).map(n => <blockquote key={n.id} className="mt-3 border-l-2 border-accent pl-3 text-[15px]"><b>{n.author_email}</b>: {n.reason}{n.hypothesis && <><br /><span className="text-muted">Hipótesis:</span> {n.hypothesis}</>}{n.success_criterion && <><br /><span className="text-muted">Criterio de éxito:</span> {n.success_criterion}</>}</blockquote>)}
+        {(notes ?? []).map(n => <blockquote key={n.id} className="mt-3 border-l-2 border-accent pl-3 text-[15px]"><b>{n.author_email.split("@")[0]}</b>: {n.reason}{n.hypothesis && <><br /><span className="text-muted">Hipótesis:</span> {n.hypothesis}</>}{n.success_criterion && <><br /><span className="text-muted">Criterio de éxito:</span> {n.success_criterion}</>}</blockquote>)}
         <form action={annotate} className="mt-3 grid gap-2 sm:grid-cols-2">
           <input type="hidden" name="session_id" value={id} />
-          <input name="author_email" required placeholder="tu correo" className="rounded border border-line bg-paper px-2 py-1 text-sm" />
+          <input type="hidden" name="author_email" value={user?.email ?? ""} />
           <input name="reason" required placeholder="Razón (obligatoria)" className="rounded border border-line bg-paper px-2 py-1 text-sm" />
           <input name="hypothesis" placeholder="Hipótesis (opcional)" className="rounded border border-line bg-paper px-2 py-1 text-sm" />
           <input name="success_criterion" placeholder="Criterio de éxito, p. ej. CPA < $180 en 7 días" className="rounded border border-line bg-paper px-2 py-1 text-sm" />
