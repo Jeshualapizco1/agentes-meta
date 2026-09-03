@@ -1,0 +1,269 @@
+<title>Agentes Meta · Viabilidad y Roadmap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F5F6F4; --surface:#FFFFFF; --ink:#1A1D21; --muted:#5C6470; --line:#D9DDD8;
+  --accent:#2F6B4F; --accent-soft:#E3EFE8; --amber:#B8862B; --amber-soft:#F6EDD8; --crit:#B3402E; --crit-soft:#F5E1DC;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Source Sans 3","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#15181B; --surface:#1D2126; --ink:#E8EAE6; --muted:#A3AAB3; --line:#2E343B;
+  --accent:#6FBF95; --accent-soft:#1E3129; --amber:#D9A94A; --amber-soft:#332A15; --crit:#E07260; --crit-soft:#3A1F1A;
+}}
+:root[data-theme="dark"]{
+  --bg:#15181B; --surface:#1D2126; --ink:#E8EAE6; --muted:#A3AAB3; --line:#2E343B;
+  --accent:#6FBF95; --accent-soft:#1E3129; --amber:#D9A94A; --amber-soft:#332A15; --crit:#E07260; --crit-soft:#3A1F1A;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;margin:0}
+.page{max-width:72ch;margin:0 auto;padding:56px 24px 96px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:500;font-size:42px;line-height:1.1;margin:10px 0 8px;text-wrap:balance}
+.lede{font-size:19px;color:var(--muted);margin:0 0 28px;max-width:60ch}
+.meta{display:flex;flex-wrap:wrap;gap:18px;font-family:var(--mono);font-size:12.5px;color:var(--muted);padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:40px}
+h2{font-family:var(--serif);font-weight:600;font-size:27px;line-height:1.2;margin:52px 0 14px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:13px;color:var(--muted);font-weight:400;margin-right:10px;vertical-align:middle}
+h3{font-family:var(--sans);font-weight:600;font-size:17px;margin:28px 0 8px}
+h3 .n{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;margin-right:8px}
+p{margin:0 0 14px}
+ul,ol{padding-left:22px;margin:0 0 14px}
+li{margin:0 0 6px}
+.tbl{overflow-x:auto;margin:14px 0 22px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.id{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap}
+.chip{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.ok{background:var(--accent-soft);color:var(--accent)}
+.mid{background:var(--amber-soft);color:var(--amber)}
+.bad{background:var(--crit-soft);color:var(--crit)}
+.verdict{background:var(--surface);border-left:3px solid var(--accent);padding:16px 20px;margin:20px 0 8px}
+.verdict p:last-child{margin:0}
+.callout{background:var(--amber-soft);border-left:3px solid var(--amber);padding:14px 18px;margin:16px 0}
+.callout p:last-child{margin:0}
+.evidence{font-family:var(--mono);font-size:13.5px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:10px 0 18px;overflow-x:auto;white-space:pre;line-height:1.5}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:14px 0 20px}
+.opp{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.opp b{display:block;margin-bottom:4px}
+.opp span{color:var(--muted);font-size:15px}
+.phase{display:grid;grid-template-columns:110px 1fr;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+.phase:last-child{border-bottom:0}
+.phase .when{font-family:var(--mono);font-size:12.5px;color:var(--muted);padding-top:3px}
+.phase b{display:block;margin-bottom:4px}
+.phase .crit{font-size:15px;color:var(--muted);margin-top:6px}
+.phase .crit strong{color:var(--accent);font-weight:600}
+a{color:var(--accent)}
+@media (max-width:560px){h1{font-size:32px}.phase{grid-template-columns:1fr}}
+</style>
+
+<div class="page">
+  <div class="eyebrow">Proyecto · agentes Meta · Documento 00</div>
+  <h1>Bitácora inteligente de Meta Ads: ¿es viable?</h1>
+  <p class="lede">Análisis previo a codear: qué sí se puede, qué no como se imagina, dónde está el valor real y en qué orden construirlo.</p>
+  <div class="meta">
+    <span>Fecha 2026-09-03</span><span>Cuentas verificadas: 9 (6 útiles)</span><span>Fuente: Graph API de Meta, muestra real</span><span>Estado: borrador para decisión</span>
+  </div>
+
+  <h2><span class="n">1</span>Veredicto</h2>
+  <div class="tbl"><table>
+    <tr><th>Pieza</th><th>Viabilidad</th><th>Riesgo</th><th>Nota clave</th></tr>
+    <tr><td>Agente 1 · Bitácora diaria a las 00:00 CDMX</td><td><span class="chip ok">Alta</span></td><td><span class="chip ok">Bajo</span></td><td>Verificado hoy: la API entrega hora, responsable, acción y valor antes/después.</td></tr>
+    <tr><td>Agente 2 · Análisis semanal "qué ayudó y qué no"</td><td><span class="chip ok">Media-alta</span></td><td><span class="chip mid">Medio</span></td><td>Viable como antes/después con contexto y nivel de confianza. No como atribución causal estricta.</td></tr>
+    <tr><td>Agente 3 · Highlights, escalar, recortar, dayparting</td><td><span class="chip ok">Media-alta</span></td><td><span class="chip mid">Medio</span></td><td>Viable como detector y recomendador. Ejecutar dayparting choca con una regla de Meta (3.6).</td></tr>
+    <tr><td>App extremadamente visual</td><td><span class="chip ok">Alta</span></td><td><span class="chip ok">Bajo</span></td><td>Sin obstáculo técnico. El reto es diseño de información.</td></tr>
+    <tr><td>Sistema completo v1</td><td><span class="chip ok">Alta</span></td><td><span class="chip mid">Medio</span></td><td>Unas 8 semanas. La bitácora sola es usable en 2.</td></tr>
+  </table></div>
+  <div class="verdict">
+    <p><b>Sí es viable y vale la pena.</b> El valor no está en "leer el log": eso ya lo hace Ads Manager. Está en tres cosas que Meta no da:</p>
+    <p>(a) cruzar cada cambio con lo que pasó después en los números, (b) conservar historia más allá de la retención de Meta con contexto humano, el "por qué lo hice", y (c) convertir eso en recomendaciones con evidencia.</p>
+  </div>
+
+  <h2><span class="n">2</span>Lo que verifiqué hoy</h2>
+  <h3><span class="n">2.1</span>Cuentas accesibles</h3>
+  <p>Nueve cuentas publicitarias bajo tu usuario, repartidas en cuatro Business Managers. El sistema debe ser multi-cuenta desde el día uno.</p>
+  <div class="tbl"><table>
+    <tr><th>Cuenta</th><th>ID</th><th>Business</th><th>Estado</th></tr>
+    <tr><td>Aromante 1 Principal</td><td class="id">1703313583465547</td><td>Aromante · Fragancias para Hombres</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>Aromante 2</td><td class="id">868659071242640</td><td>Aromante</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>Aromante 3</td><td class="id">699409435248329</td><td>Aromante</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>Aromante 4</td><td class="id">860693565436963</td><td>Aromante</td><td><span class="chip bad">Cerrada</span></td></tr>
+    <tr><td>Venta Por Menor - Aromante</td><td class="id">500403708677075</td><td>Somos Vita Plus</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>Pestañas Sarahí</td><td class="id">6601953113162872</td><td>Somos Vita Plus</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>Car Studio</td><td class="id">1202862477170274</td><td>CAR STUDIO</td><td><span class="chip ok">Activa</span></td></tr>
+    <tr><td>SomosVitaPlus - Drop</td><td class="id">1358758457951590</td><td>VitaPlus</td><td><span class="chip bad">Deshabilitada</span></td></tr>
+    <tr><td>Jeshua Acosta (personal)</td><td class="id">1028157971401107</td><td>—</td><td><span class="chip mid">Sin liquidar</span></td></tr>
+  </table></div>
+
+  <h3><span class="n">2.2</span>El log de cambios existe y trae lo que pides</h3>
+  <p>Muestra real de Aromante 1 Principal, últimos 7 días, 60 eventos:</p>
+<div class="evidence">Campos     event_type · actor_id · actor_name · object_id · object_name · datetime · extra_data
+Tipos      Ad set status updated 28 · Ad set targeting updated 14 · Ad delivered 12
+           Custom audience updated 3 · Custom audience created 2 · Ad status updated 1
+Actores    Eduardo Torres 46 · Meta (sistema) 14
+extra_data {"old_value":"Active","new_value":"Pending Process","type":"run_status",
+            "last_learning_exit":1784058226}</div>
+  <p>Un cambio de segmentación trae el diff completo: audiencias excluidas, ubicación, edad, placements. Un cambio de estado trae <code>last_learning_exit</code>: cuándo salió el ad set de la fase de aprendizaje. Eso es oro para el agente 2.</p>
+
+  <h3><span class="n">2.3</span>Los datos por hora existen</h3>
+  <p>Consulté gasto e impresiones con desglose horario por campaña. Llegan 24 filas por campaña por día, en la zona horaria de la cuenta.</p>
+<div class="evidence">CBO | SCALE         00:00-00:59   $36.07 MXN   723 impresiones   ROAS null
+CBO | PROSPECCIÓN   00:00-00:59   $26.76 MXN   931 impresiones   ROAS null</div>
+  <div class="callout"><p>El ROAS por hora regresó nulo en un día. Las compras por hora son pocas y ruidosas. El dayparting solo es confiable agregando varias semanas (ver 3.6).</p></div>
+
+  <h3><span class="n">2.4</span>Hallazgo decisivo: el conector de chat no sirve para producción</h3>
+  <p>El conector de Meta Ads que usamos en este chat devuelve la fecha como texto, "9/3/2026 at 9:35 AM", sin zona horaria ni formato estable. El agente debe ir directo a la Graph API (<code>/act_&lt;id&gt;/activities</code> e <code>/insights</code>), que entrega <code>event_time</code> en ISO 8601 con offset. El conector sirvió para validar viabilidad; el producto usa su propio token.</p>
+
+  <h2><span class="n">3</span>Riesgos y realidades duras</h2>
+
+  <h3><span class="n">3.1</span>El log crudo es ruidoso y hay que compilarlo</h3>
+  <p>Cada edición humana genera un par "Active → Pending Process → Active" que Meta produce por sistema, más eventos "Ad delivered". Sin procesamiento, la bitácora sería ilegible: 60 líneas donde el humano hizo 15 cosas. Solución: agrupar eventos en sesiones de edición (mismo actor, mismo objeto, ventana de 2 a 3 minutos), descartar pares redundantes y reconstruir un diff legible: "Presupuesto diario $800 → $1,200 (+50%)".</p>
+
+  <h3><span class="n">3.2</span>Retención del historial en Meta</h3>
+  <p>El conector asume 3 meses hacia atrás. No confío en que Meta guarde más. Por eso el agente 1 es el cimiento: copiamos todo a nuestra base cada noche y hacemos un backfill de 90 días el primer día. Después de eso la retención es nuestra.</p>
+
+  <h3><span class="n">3.3</span>La atribución causal es el punto más débil</h3>
+  <p>"Este cambio le hizo bien a la cuenta" es una afirmación causal. Lo que sí podremos decir: "después de este cambio, en una ventana de N días, la métrica X se movió Y% respecto a la línea base, mientras los ad sets no tocados se movieron Z%". Los factores de confusión son enormes:</p>
+  <ul>
+    <li>Meta redistribuye presupuesto sola dentro de CBO y Advantage+, y eso no aparece en el log.</li>
+    <li>Estacionalidad mexicana: quincenas, Buen Fin, Navidad, Día del Padre (crítico para fragancias masculinas), lunes vs. viernes.</li>
+    <li>Creativos nuevos, fatiga, competencia en subasta, stock, caídas del sitio, promociones.</li>
+    <li>Fase de aprendizaje: cambios de presupuesto mayores al 20%, de segmentación, creativo o puja la reinician y deprimen resultados de 3 a 7 días por sí mismos.</li>
+    <li>Volumen: con pocas compras por ad set, cualquier comparación de 3 días es ruido.</li>
+  </ul>
+  <p><b>Cómo lo manejamos.</b> Cada veredicto lleva nivel de confianza (alta, media, baja) según volumen y estabilidad de la línea base. Usamos como control las campañas no tocadas en la misma ventana. El reporte dice "coincidió con", nunca "causó", salvo en pruebas A/B formales. Marcamos los cambios que reiniciaron aprendizaje. Las anotaciones humanas (3.9) convierten cambios en hipótesis evaluables.</p>
+
+  <h3><span class="n">3.4</span>Los números de Meta se mueven después de reportados</h3>
+  <p>Las conversiones se siguen acreditando hasta 7 días y Meta reexpresa cifras. Un análisis el domingo de un cambio hecho el viernes es prematuro. Solución: snapshots de insights con fecha de captura, y que el agente 2 reevalúe cada cambio a 7 y 14 días de madurez, pasando el veredicto de "preliminar" a "maduro".</p>
+
+  <h3><span class="n">3.5</span>Zonas horarias</h3>
+  <p>CDMX es UTC-6 fijo desde 2022, lo que simplifica. Pero el log viene en UTC y los insights en la zona de la cuenta. El spike debe verificar que cada cuenta tenga zona America/Mexico_City; si alguna quedó en otra, el dayparting saldría desplazado. La corrida de las 00:00 CDMX es 06:00 UTC; el corte del domingo 23:59 CDMX es lunes 05:59 UTC.</p>
+
+  <h3><span class="n">3.6</span>Dayparting: una restricción de Meta que cambia el diseño</h3>
+  <div class="callout"><p>La programación de anuncios por horas nativa de Meta solo funciona con presupuesto total (lifetime), no con presupuesto diario.</p></div>
+  <p>Si la cuenta opera con presupuesto diario, las opciones son:</p>
+  <ol>
+    <li>Migrar campañas seleccionadas a presupuesto total con calendario. Limpio, pero cambia el pacing.</li>
+    <li>Reglas automatizadas o cambios de presupuesto por hora vía API. Sucio: cada cambio mayor al 20% reinicia aprendizaje, y el pacing de Meta ya concentra gasto en horas buenas.</li>
+    <li>Solo recomendar, y que el media buyer decida.</li>
+  </ol>
+  <p>Además, el desglose horario atribuye la conversión a la hora de la impresión y las compras por celda hora × día son diminutas. Diseño propuesto: matriz día de la semana × 4 bloques horarios, mínimo 4 semanas de datos, umbral mínimo de conversiones por celda, y recomendación solo cuando la diferencia entre bloques supere un margen configurable. Recomiendo la opción 3 en v1 y la 1 después, con aprobación humana.</p>
+
+  <h3><span class="n">3.7</span>Multi-cuenta y accesos</h3>
+  <p>Dos Business Managers relevantes, seis cuentas útiles. Se requiere un System User por BM con permiso de lectura de anuncios, y de escritura solo si en el futuro se ejecutan cambios. Los tokens de System User no expiran. La Graph API cambia de versión cada dos años aproximadamente: fijar versión y planear upgrade.</p>
+
+  <h3><span class="n">3.8</span>Riesgo de alucinación del modelo</h3>
+  <p>Si el modelo calcula números, mentirá tarde o temprano. Regla de arquitectura: todo número lo calcula código determinista y produce un paquete de evidencia estructurado. El modelo solo redacta e interpreta a partir de ese paquete, y cada afirmación del reporte enlaza a las filas que la sustentan.</p>
+
+  <h3><span class="n">3.9</span>El log dice qué, pero no por qué</h3>
+  <p>La mayor oportunidad del proyecto: un campo de "razón" de una línea por cambio, capturado en la app o con un mensaje diario ("ayer hiciste 6 cambios, ¿por qué?"). Con razón e hipótesis, el agente 2 evalúa "¿se cumplió lo que esperabas?" en vez de adivinar.</p>
+
+  <h3><span class="n">3.10</span>Sobre-automatizar demasiado pronto</h3>
+  <p>La tentación es que el agente 3 ejecute escalados solo. Recomiendo v1 en modo "recomienda → humano aprueba con un clic → se ejecuta y queda en la bitácora con actor Agente". Automatización sin aprobación solo cuando el historial demuestre tasa de acierto.</p>
+
+  <h3><span class="n">3.11</span>Costo estimado</h3>
+  <div class="tbl"><table>
+    <tr><th>Concepto</th><th>Mensual</th></tr>
+    <tr><td>Infraestructura (Supabase + hosting)</td><td>25 a 50 USD</td></tr>
+    <tr><td>API de Claude para narrativas</td><td>10 a 40 USD según cuentas</td></tr>
+    <tr><td>Meta API</td><td>Sin costo</td></tr>
+  </table></div>
+  <p>Lo caro es el tiempo de construcción y calibración, no la operación.</p>
+
+  <h2><span class="n">4</span>Áreas de oportunidad</h2>
+  <div class="grid2">
+    <div class="opp"><b>Anotaciones e hipótesis por cambio</b><span>Convierte la bitácora en un registro de experimentos.</span></div>
+    <div class="opp"><b>Alerta de reinicio de aprendizaje</b><span>"Este +45% de presupuesto reinició el aprendizaje del ad set X."</span></div>
+    <div class="opp"><b>Alertas en tiempo real</b><span>Pausas, presupuesto mayor a X%, gasto anómalo, cuenta deshabilitada. Ya tienes una cuenta con esa bandera.</span></div>
+    <div class="opp"><b>Snapshot diario de configuración</b><span>Responder "¿cómo estaba la cuenta el 14 de agosto?" y detectar cambios que el log no captura.</span></div>
+    <div class="opp"><b>Verdad de negocio con Shopify</b><span>Ingresos reales vs. ROAS reportado, MER, sobre/sub-atribución. Ya está conectado.</span></div>
+    <div class="opp"><b>Fatiga creativa</b><span>Frecuencia y decaimiento de CTR y CPM por anuncio, con sugerencia de rotación.</span></div>
+    <div class="opp"><b>Calendario de contexto</b><span>Quincenas, Buen Fin, Día del Padre, promos. Para no culpar a un cambio de lo que hizo el calendario.</span></div>
+    <div class="opp"><b>Playbook codificado</b><span>Las reglas de escalado del media buyer como reglas verificables; el agente reporta cumplimiento.</span></div>
+    <div class="opp"><b>Vista multi-cuenta</b><span>Comparación entre las cuentas Aromante en una sola pantalla.</span></div>
+    <div class="opp"><b>Entrega por WhatsApp, Slack o email</b><span>Además de la app, con export a PDF del reporte semanal.</span></div>
+    <div class="opp"><b>Auditoría por responsable</b><span>Quién cambia qué y con qué resultado, para equipos con varios media buyers.</span></div>
+    <div class="opp"><b>Cierre del loop</b><span>Registrar si cada recomendación se siguió y qué pasó, para calibrar umbrales con datos propios.</span></div>
+  </div>
+
+  <h2><span class="n">5</span>Arquitectura propuesta</h2>
+  <ul>
+    <li><b>Monorepo TypeScript.</b> <code>apps/web</code> (Next.js, Tailwind, gráficas), <code>packages/meta</code> (cliente Graph API con reintentos y versión fijada), <code>packages/db</code> (Postgres en Supabase, migraciones), <code>packages/agents</code> (collector, analyst, strategist), <code>packages/core</code> (agrupación, diffs, evidencia).</li>
+    <li><b>Base de datos.</b> accounts, entities (snapshots), change_events (crudo), change_groups (sesiones legibles), insights_daily, insights_hourly, annotations, analyses (reportes versionados), recommendations, agent_runs (auditoría).</li>
+    <li><b>Scheduling.</b> pg_cron en Supabase o cron del hosting, en UTC. Corridas idempotentes y reejecutables por rango de fechas. Botón "forzar análisis" para el agente 2.</li>
+    <li><b>Agentes.</b> Código determinista para evidencia, Claude para narrativa, con el paquete de evidencia como contrato entre ambos.</li>
+    <li><b>Notificaciones.</b> n8n o llamadas directas a WhatsApp y Slack.</li>
+    <li><b>Descartado.</b> El conector de chat en producción (fechas sin zona) y Windsor.ai como ingesta (no expone el log de cambios, costo extra).</li>
+  </ul>
+
+  <h2><span class="n">6</span>Roadmap</h2>
+  <div class="phase"><div class="when">Fase 0<br>2 a 3 días</div><div><b>Spike y accesos</b>System User por BM, verificación de retención del log y zona horaria de cuentas, proyecto Supabase, repo, script de backfill de 90 días.<div class="crit"><strong>Éxito:</strong> las 6 cuentas descargan su historial a la base sin errores.</div></div></div>
+  <div class="phase"><div class="when">Fase 1<br>Semanas 1-2</div><div><b>Bitácora</b>Collector diario 00:00 CDMX, agrupación en sesiones, diffs legibles, timeline visual con filtros por cuenta, responsable, tipo, objeto y fecha, export CSV.<div class="crit"><strong>Éxito:</strong> todo cambio del Ads Manager aparece al día siguiente con hora CDMX, responsable y valor antes/después.</div></div></div>
+  <div class="phase"><div class="when">Fase 2<br>Semanas 3-4</div><div><b>Métricas y contexto</b>Ingesta de insights diarios y por hora con snapshots, ingresos Shopify, gráficas con los cambios marcados sobre la curva de ROAS, CPA y gasto, anotaciones de razón.<div class="crit"><strong>Éxito:</strong> ver cualquier cambio y su "después" en una sola pantalla.</div></div></div>
+  <div class="phase"><div class="when">Fase 3<br>Semanas 5-6</div><div><b>Agente semanal</b>Paquete de evidencia antes/después con control, nivel de confianza, narrativa, disparo manual, reevaluación a 7 y 14 días, envío del reporte.<div class="crit"><strong>Éxito:</strong> el media buyer acepta el reporte del domingo como justo y útil dos semanas seguidas.</div></div></div>
+  <div class="phase"><div class="when">Fase 4<br>Semanas 7-8</div><div><b>Agente estratega</b>Reglas de escalar y recortar con umbrales configurables, matriz de dayparting con significancia mínima, alertas de fase de aprendizaje, highlights diarios y semanales.<div class="crit"><strong>Éxito:</strong> al menos una recomendación por semana que el equipo decida ejecutar.</div></div></div>
+  <div class="phase"><div class="when">Fase 4b<br>Después</div><div><b>Ejecución asistida</b>Botón "aplicar" con aprobación humana; el agente escribe en Meta y queda en la bitácora.<div class="crit"><strong>Éxito:</strong> cero cambios sin aprobación.</div></div></div>
+  <div class="phase"><div class="when">Fase 5<br>Continuo</div><div><b>Calibración</b>Registro de recomendaciones seguidas y resultado; ajuste de umbrales.<div class="crit"><strong>Éxito:</strong> tasa de acierto medida y creciente.</div></div></div>
+  <p style="margin-top:18px">Total v1 (fases 0 a 4): unas 8 semanas. La bitácora sola es usable en 2.</p>
+
+  <h2><span class="n">7</span>Decisiones que necesito de ti</h2>
+  <p>Supuestos con los que avanzo mientras no digas lo contrario:</p>
+  <div class="tbl"><table>
+    <tr><th>Decisión</th><th>Supuesto actual</th></tr>
+    <tr><td>Cuentas a incluir</td><td>Las 6 activas: 3 Aromante, Venta Por Menor, Pestañas Sarahí, Car Studio.</td></tr>
+    <tr><td>Métrica norte por cuenta</td><td>ROAS de compra y CPA, con MER de Shopify como verdad de negocio.</td></tr>
+    <tr><td>¿Los agentes ejecutan o solo recomiendan?</td><td>Solo recomiendan en v1.</td></tr>
+    <tr><td>Canal de entrega además de la app</td><td>App primero; WhatsApp o Slack en fase 3.</td></tr>
+    <tr><td>Stack</td><td>Supabase + Next.js + Claude API, porque Supabase ya está conectado.</td></tr>
+    <tr><td>Quién anota razones de cambio</td><td>Cada media buyer, desde la app, al día siguiente.</td></tr>
+  </table></div>
+
+  <h2><span class="n">8</span>Benchmark: qué adaptar de Testmia</h2>
+  <p>Testmia es un servicio gestionado para ecommerce donde un agente revisa la cuenta de Meta 4 veces al día, pausa anuncios y mueve presupuesto entre campañas dentro de límites codificados, con humanos supervisando. La diferencia de fondo: ellos son un ejecutor con bitácora, nosotros una bitácora con criterio. No evalúan los cambios del humano ni hacen dayparting. Lo que sí vale copiar es su ingeniería de seguridad, su forma de medir decisiones y su honestidad con los datos.</p>
+  <div class="tbl"><table>
+    <tr><th>Idea de Testmia</th><th>Adoptar</th><th>Dónde cae</th></tr>
+    <tr><td>"Primero se escribe la decisión, luego sale la orden a Meta"</td><td><span class="chip ok">Sí</span></td><td>Fase 4b · write-ahead log</td></tr>
+    <tr><td>Un solo timeline para persona, agente y Meta</td><td><span class="chip ok">Sí</span></td><td>Fase 1 · actor tipado</td></tr>
+    <tr><td>Cada decisión abre una ventana de 72 h medida contra el resto de la cuenta</td><td><span class="chip ok">Sí, ampliado</span></td><td>Fase 3 · ventanas 72 h / 7 d / 14 d</td></tr>
+    <tr><td>Nunca juzgar el día en curso; 14 días cerrados</td><td><span class="chip ok">Sí</span></td><td>Fase 2 y 3 · regla de día cerrado</td></tr>
+    <tr><td>"Si una cifra está incompleta, la pantalla lo dice; nunca se rellena con una estimación"</td><td><span class="chip ok">Sí</span></td><td>Fase 2 · insignias de madurez y cobertura</td></tr>
+    <tr><td>ROAS real con ventas netas, MER, clientes nuevos, CAC, AOV, recompra</td><td><span class="chip ok">Sube a núcleo</span></td><td>Fase 2 · Shopify deja de ser opcional</td></tr>
+    <tr><td>Modos por cuenta: Off, Semi-automático, Automático</td><td><span class="chip ok">Sí</span></td><td>Fase 4 (Off, Semi) · 4b (Auto)</td></tr>
+    <tr><td>Candados codificados: máximo por cambio, espera tras acción, tope diario, lista blanca. "Basta uno cerrado para que la orden no salga"</td><td><span class="chip ok">Sí, también para recomendar</span></td><td>Fase 4</td></tr>
+    <tr><td>Freno de emergencia que "se libera a mano, nunca solo"</td><td><span class="chip ok">Sí</span></td><td>Fase 1 (collector) · Fase 4 (por cuenta)</td></tr>
+    <tr><td>Movimientos atados con rollback y 72 h de congelamiento</td><td><span class="chip ok">Sí</span></td><td>Fase 4b</td></tr>
+    <tr><td>Nunca borra, ni toca creativo, targeting, puja u objetivo; anuncios nuevos nacen pausados; no reactiva lo pausado por humano</td><td><span class="chip ok">Sí</span></td><td>Fase 4b · matriz de acciones permitidas</td></tr>
+    <tr><td>Presupuesto de exploración: "una hipótesis a la vez y el criterio de éxito declarado antes de lanzar"</td><td><span class="chip ok">La mejor idea</span></td><td>Fase 3 · entidad experimento</td></tr>
+    <tr><td>4 pasadas al día en la zona de la cuenta</td><td><span class="chip mid">Parcial</span></td><td>Fase 1 · collector cada 6 h, consolidación a las 00:00</td></tr>
+    <tr><td>Panel: gasto de ayer vs. techo, última pasada, propuestas pendientes, cambios de la semana</td><td><span class="chip ok">Sí</span></td><td>Fase 2 y 4 · panel "Hoy"</td></tr>
+    <tr><td>"Cada error vuelve como una regla nueva"; reporta días sin cambios</td><td><span class="chip ok">Sí</span></td><td>Fase 1 y 5</td></tr>
+    <tr><td>Orden y nomenclatura consistente como condición del sistema</td><td><span class="chip ok">Sí</span></td><td>Fase 1 · parser de nombres y chequeo de cumplimiento</td></tr>
+    <tr><td>Live Ads: CPA por anuncio con miniatura; "1,417 anuncios que nadie veía"</td><td><span class="chip mid">Parcial</span></td><td>Fase 2 · vista por anuncio y "sin revisar"</td></tr>
+    <tr><td>Identidad: "sin márgenes y límites no sabe cuánto puede pagar por una venta"</td><td><span class="chip ok">Hueco en nuestro plan</span></td><td>Fase 0 · perfil por cuenta</td></tr>
+    <tr><td>Aceptar o rechazar cada propuesta alimenta al agente</td><td><span class="chip ok">Sí</span></td><td>Fase 4 y 5</td></tr>
+  </table></div>
+  <h3>Lo que no adoptamos</h3>
+  <ul>
+    <li>Servicio gestionado con aplicación y onboarding manual: construimos una herramienta interna.</li>
+    <li>Ejecución automática desde el inicio: seguimos con recomienda → aprueba → ejecuta.</li>
+    <li>CRO, copy, contenido, mailing y social listening: fuera del propósito. Solo los comentarios en anuncios tienen valor futuro, como fase 6 opcional.</li>
+    <li>La ventana única de 72 h: demasiado corta para el volumen de compras. Es primer checkpoint, no veredicto.</li>
+  </ul>
+  <h3>Lo que Testmia no tiene y nosotros sí</h3>
+  <ul>
+    <li>Análisis retrospectivo de los cambios humanos y qué pasó después.</li>
+    <li>Dayparting con matriz día × bloque horario.</li>
+    <li>Anotaciones de "por qué" por cambio.</li>
+    <li>Multi-cuenta consolidado entre negocios distintos, y veredictos que maduran a 7 y 14 días.</li>
+  </ul>
+  <h3>Deltas al roadmap</h3>
+  <div class="phase"><div class="when">Fase 0</div><div>+ Perfil por cuenta: margen, ROAS de equilibrio, CPA objetivo, techo y piso de gasto, lista blanca, noes duros. + Especificación del parser de nomenclatura.</div></div>
+  <div class="phase"><div class="when">Fase 1</div><div>+ Collector cada 6 h con consolidación a las 00:00 CDMX. + Actor tipado. + Circuit breakers: fallo de log, cuenta deshabilitada, pago, datos incompletos. + Días sin cambios reportados. + Chequeo de nomenclatura.</div></div>
+  <div class="phase"><div class="when">Fase 2</div><div>+ Ventas netas, MER, clientes nuevos, CAC, AOV, recompra y top productos como núcleo. + Regla de día cerrado e insignias de madurez. + Vista por anuncio con miniatura y "sin revisar". + Panel "Hoy".</div></div>
+  <div class="phase"><div class="when">Fase 3</div><div>+ Ventanas por cambio a 72 h, 7 d y 14 d contra el resto de la cuenta. + Entidad experimento con criterio de éxito previo. + Veredicto preliminar → maduro.</div></div>
+  <div class="phase"><div class="when">Fase 4</div><div>+ Candados aplicados a recomendaciones. + Cola de propuestas con aprobar / rechazar y razón. + Modos Off y Semi por cuenta. + Freno de emergencia manual.</div></div>
+  <div class="phase"><div class="when">Fase 4b</div><div>+ Write-ahead log. + Movimientos atados con rollback y congelamiento. + Matriz de acciones permitidas.</div></div>
+  <div class="phase"><div class="when">Fase 5</div><div>+ Cada error vuelve como regla versionada. + Veredicto humano por propuesta alimenta los umbrales.</div></div>
+  <p style="margin-top:18px">Impacto en tiempo: fases 0 a 2 crecen unos 3 a 4 días. Fases 3 y 4 no cambian. Estimación v1: 8 a 9 semanas.</p>
+</div>
