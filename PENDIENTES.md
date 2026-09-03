@@ -3,12 +3,14 @@
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
 ## Bloqueado por el usuario
-- [ ] Capturar el perfil de Aromante 1 en la app (http://localhost:3000/configuracion): margen, ROAS de equilibrio/objetivo, CPA objetivo, techo/piso, lista blanca, noes duros.
+- [x] Perfil de Aromante 1 capturado en la app (margen 30%, equilibrio 2.5, objetivo 6, CPA 170, techo 15,000, piso 9,000, cambio máx. 17%).
 - [ ] Decidir canal de alertas (WhatsApp, Slack o email) y credenciales.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
 
 ## Siguiente sesión
-- [ ] Desplegar la app (Vercel) para que el equipo la vea sin correrla en local. Al desplegar: agregar la URL pública en Supabase → Authentication → URL Configuration (Site URL y Redirect URLs) y en `APP_URL`.
+- [x] Desplegada en Netlify: https://bitacora-aromante.netlify.app (ver docs/04-deploy-web.md).
+- [ ] **Usuario:** en Supabase → Authentication → URL Configuration poner Site URL `https://bitacora-aromante.netlify.app` y agregar Redirect URL `https://bitacora-aromante.netlify.app/auth/callback` (y la de localhost). Sin esto el enlace mágico no funciona en producción.
+- [ ] Capturar la lista blanca de campañas y los noes duros en Configuración (el resto del perfil ya está).
 - [ ] Vista de nomenclatura con entidades que tienen `issues`.
 - [ ] Insights por hora (base del dayparting) en el collector; trasladar Mazatlán → CDMX.
 - [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector ya disponible).

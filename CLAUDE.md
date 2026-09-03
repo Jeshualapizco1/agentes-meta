@@ -34,6 +34,9 @@ Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis compl
 - Dayparting nativo de Meta solo funciona con presupuesto total (lifetime). Con presupuesto diario, solo se recomienda.
 - Ideas adoptadas de Testmia (ver benchmark): candados codificados, modos off/semi/auto, ventanas de evaluación 72h/7d/14d, experimentos con criterio de éxito previo, freno de emergencia manual, "cada error vuelve como regla".
 
+## Producción
+App: https://bitacora-aromante.netlify.app (Netlify, desplegar desde `apps/web` con `CI=1 netlify deploy --build --prod < /dev/null`). Collector: GitHub Actions en https://github.com/Jeshualapizco1/agentes-meta. Detalles en `docs/03-deploy-cron.md` y `docs/04-deploy-web.md`.
+
 ## Cómo correr
 ```bash
 pnpm install
