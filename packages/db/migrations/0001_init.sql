@@ -61,25 +61,6 @@ create table entity_snapshots (
   unique(entity_id, snapshot_date)
 );
 
-create table change_events (
-  id bigserial primary key,
-  account_id text not null references accounts(id),
-  event_time timestamptz not null,
-  event_type text not null,
-  actor_id text, actor_name text,
-  actor_kind actor_kind not null default 'person',
-  object_id text, object_name text, object_type text,
-  application_name text,
-  extra_data jsonb,
-  old_value jsonb, new_value jsonb,
-  fingerprint text not null unique,             -- idempotencia del collector
-  group_id uuid,
-  ingested_at timestamptz not null default now()
-);
-create index on change_events(account_id, event_time desc);
-create index on change_events(object_id, event_time);
-create index on change_events(group_id);
-
 create table change_groups (
   id uuid primary key default gen_random_uuid(),
   account_id text not null references accounts(id),
@@ -96,7 +77,25 @@ create table change_groups (
 );
 create index on change_groups(account_id, started_at desc);
 create index on change_groups(campaign_id, started_at);
-alter table change_events add constraint change_events_group_fk foreign key (group_id) references change_groups(id);
+create table change_events (
+  id bigserial primary key,
+  account_id text not null references accounts(id),
+  event_time timestamptz not null,
+  event_type text not null,
+  actor_id text, actor_name text,
+  actor_kind actor_kind not null default 'person',
+  object_id text, object_name text, object_type text,
+  application_name text,
+  extra_data jsonb,
+  old_value jsonb, new_value jsonb,
+  fingerprint text not null unique,             -- idempotencia del collector
+  group_id uuid references change_groups(id),
+  ingested_at timestamptz not null default now()
+);
+create index on change_events(account_id, event_time desc);
+create index on change_events(object_id, event_time);
+create index on change_events(group_id);
+
 
 create table annotations (
   id uuid primary key default gen_random_uuid(),
