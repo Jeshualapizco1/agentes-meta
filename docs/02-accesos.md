@@ -30,3 +30,13 @@ Por cuenta: margen bruto %, ROAS de equilibrio, CPA objetivo, techo y piso de ga
 
 ## 5. Usuarios de la app (para la Fase 1)
 Correos de quienes entrarán: tú, Eduardo Torres y quien más opere cuentas.
+
+## Estado al 2026-09-03 (tarde)
+- Token corto recibido y usado: sirvió para bajar 90 días de Aromante 1 (3,595 eventos). Meta lo invalidó el mismo día. **Pendiente: token nuevo y extendido.**
+- Supabase: proyecto `agentes-meta` creado (ref `njkyghbgquaqzzaylmwl`, us-east-1), esquema aplicado (migraciones 0001 y 0002).
+- **Pendiente: contraseña de la base de datos** (Supabase → Project Settings → Database → Reset database password) para `DATABASE_URL`, y la **service role key** (Project Settings → API Keys → Secret keys) para `SUPABASE_SERVICE_ROLE_KEY`. Ambas van en `.env`, no en el chat.
+
+### Cómo extender el token (para que dure 60 días)
+1. Genera el token en el Graph API Explorer como antes (permisos `ads_read`, `read_insights`, `business_management`).
+2. Ábrelo en https://developers.facebook.com/tools/debug/accesstoken/ y pulsa "Extender token de acceso".
+3. Copia el token extendido y pégalo en `.env` en `META_TOKEN_AROMANTE=`.
