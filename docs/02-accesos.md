@@ -23,7 +23,7 @@ Por cada Business Manager (Aromante, Somos Vita Plus, CAR STUDIO):
 Proyecto nuevo "agentes-meta" en la organización "Jeshua MP". Lo creo yo con tu autorización (el plan Free permite 2 proyectos; si ya no cabe, Pro cuesta 25 USD/mes).
 
 ## 3. Cuentas incluidas (confirmar)
-Aromante 1 Principal · Aromante 2 · Aromante 3 · Venta Por Menor - Aromante · Pestañas Sarahí · Car Studio
+Aromante 1 Principal · Aromante 2 · Aromante 3 (confirmado 2026-09-03)
 
 ## 4. Perfil por cuenta (no bloquea, pero lo necesito antes de la Fase 3)
 Por cuenta: margen bruto %, ROAS de equilibrio, CPA objetivo, techo y piso de gasto diario, campañas que el agente puede tocar (lista blanca).
