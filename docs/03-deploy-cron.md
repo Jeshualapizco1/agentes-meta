@@ -1,6 +1,6 @@
 # Programar el collector (GitHub Actions)
 
-Corre estos comandos en la raíz del proyecto (crean un repo privado, suben el código y guardan los secretos cifrados en GitHub):
+Ya está hecho (2026-09-03): repo https://github.com/Jeshualapizco1/agentes-meta con secretos cargados. Los comandos quedan como referencia (crean un repo privado, suben el código y guardan los secretos cifrados en GitHub):
 
 ```bash
 cd "/Users/jeshua/agentes Meta"

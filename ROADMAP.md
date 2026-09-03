@@ -16,7 +16,7 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - [x] Parser de nomenclatura + chequeo de cumplimiento (guardado en `entities.parsed_name.issues`)
 - [x] App: timeline por día con filtros, detalle de sesión, anotación de razón/hipótesis/criterio, estado del sistema
 - [x] Días sin cambios reportados explícitamente
-- [ ] Cron cada 6 h (GitHub Actions) con consolidación 00:00 CDMX — falta crear repo remoto y secretos
+- [x] Cron cada 6 h (GitHub Actions) con consolidación 00:00 CDMX — repo y secretos listos 2026-09-03
 - [ ] Autenticación: enlace mágico de Supabase Auth restringido a `app_users`
 - [ ] Alertas por WhatsApp/Slack/email de fallos del collector y cuenta deshabilitada
 - [ ] Vista de nomenclatura: entidades con issues
