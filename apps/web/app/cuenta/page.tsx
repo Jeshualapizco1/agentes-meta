@@ -14,6 +14,7 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
   const accountId = p.account ?? "1703313583465547";
   const acc = (accounts ?? []).find(a => a.id === accountId);
   const sinceDate = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const { data: prof } = await sb.from("account_profiles").select("*").eq("account_id", accountId).maybeSingle();
   const [{ data: rows }, { data: sessions }] = await Promise.all([
     sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).order("date"),
     sb.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,significance").eq("account_id", accountId).eq("significance", "major").eq("actor_kind", "person").gte("started_at", sinceDate).order("started_at"),
@@ -48,6 +49,14 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
         {kpi("ROAS (Meta)", s7 > 0 ? v7 / s7 : 0, sp7 > 0 ? vp7 / sp7 : 0, v => v.toFixed(2))}
         {kpi("CPA", c7 > 0 ? s7 / c7 : 0, cp7 > 0 ? sp7 / cp7 : 0, mxn0, false)}
       </div>
+      {prof?.target_roas || prof?.target_cpa || prof?.daily_spend_ceiling ? (
+        <div className="flex flex-wrap gap-2 text-sm"><span className="text-muted">Objetivos configurados:</span>
+          {prof.breakeven_roas && <Chip tone="neutral">ROAS equilibrio {Number(prof.breakeven_roas).toFixed(2)}</Chip>}
+          {prof.target_roas && <Chip tone={s7 > 0 && v7 / s7 >= Number(prof.target_roas) ? "ok" : "crit"}>ROAS objetivo {Number(prof.target_roas).toFixed(2)} · actual {(s7 > 0 ? v7 / s7 : 0).toFixed(2)}</Chip>}
+          {prof.target_cpa && <Chip tone={c7 > 0 && s7 / c7 <= Number(prof.target_cpa) ? "ok" : "crit"}>CPA objetivo {mxn0(Number(prof.target_cpa))} · actual {mxn0(c7 > 0 ? s7 / c7 : 0)}</Chip>}
+          {prof.daily_spend_ceiling && <Chip tone={s7 / Math.max(1, last7.length) <= Number(prof.daily_spend_ceiling) ? "ok" : "crit"}>techo {mxn0(Number(prof.daily_spend_ceiling))}/día · promedio {mxn0(s7 / Math.max(1, last7.length))}</Chip>}
+          <a href={`/configuracion?account=${accountId}`} className="text-accent">editar →</a></div>
+      ) : <p className="text-sm text-muted">Sin objetivos configurados todavía. <a href={`/configuracion?account=${accountId}`} className="text-accent">Captúralos en Configuración →</a></p>}
       <p className="text-sm text-muted">Cada punto sobre la línea es una sesión de cambios de una persona. <span className="text-amber">Ámbar ↻</span> = reinició la fase de aprendizaje. La franja ámbar es el día en curso: se muestra, no se juzga. Los números son los que reporta Meta; la verdad de negocio (Shopify) llega en la Fase 2. <Chip tone="amber">preliminar hasta 7 días</Chip></p>
       <TimeSeries title="Gasto diario" unit="MXN" points={spend} markers={markers} format={mxn0} />
       <TimeSeries title="ROAS diario (Meta)" points={roas} markers={markers} format={v => v.toFixed(1)} />
