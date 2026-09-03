@@ -8,8 +8,9 @@
 import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
+import { ingestInsights } from "./insights.js";
 
-export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; triggeredBy?: string; log?: (m: string) => void }
+export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
 
 export async function runCollector(o: CollectorOptions): Promise<void> {
   const log = o.log ?? console.log;
@@ -88,10 +89,17 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     ({ groups, sessions } = await regroup(db, acc.id, cutoff, ents));
   }
 
-  // 4. Día sin cambios humanos → se registra explícitamente
+  // 4. Insights diarios (Fase 2). Falla por separado para no perder la bitácora.
+  let insights: Record<string, number> = {};
+  if (!o.skipInsights) {
+    try { insights = await ingestInsights(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.insightsDays ?? 14 }); }
+    catch (e) { const msg = e instanceof Error ? e.message : String(e); await db.from("alerts").insert({ account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
+  }
+
+  // 5. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, since: since.toISOString(), humanEventsTodayCdmx: humanToday };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights };
 }
 
 /** Rehace grupos y sesiones para eventos con event_time ≥ cutoff. */
