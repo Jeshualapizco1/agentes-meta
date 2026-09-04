@@ -20,16 +20,28 @@ async function loadRows(db: Db, accountId: string, since: string): Promise<Daily
   return data.map(r => ({ entity_id: r.entity_id, date: r.date, spend: Number(r.spend ?? 0), purchases: Number(r.purchases ?? 0), value: Number(r.purchase_value ?? 0) }));
 }
 
-/** Calcula y guarda las ventanas de una lista de sesiones. Devuelve las evaluaciones por sesión. */
+/** Calcula y guarda las ventanas de una lista de sesiones. Devuelve las evaluaciones por sesión. Cada veredicto que cambia queda en verdict_changes. */
 export async function evaluateSessions(db: Db, acc: Acc, sessions: SessionRow[], rows: DailyRow[], today: string): Promise<Map<string, Evaluation[]>> {
   const out = new Map<string, Evaluation[]>(); const upserts: Record<string, unknown>[] = [];
+  type Prev = { session_id: string; horizon: string; status: string; reading: string | null; confidence: string | null; verdict: string | null };
+  const prev = new Map<string, Prev>();
+  const ids = sessions.map(s => s.id);
+  for (let i = 0; i < ids.length; i += 200) for (const w of await fetchAll<Prev>(() => db.from("evaluation_windows").select("session_id,horizon,status,reading,confidence,verdict").in("session_id", ids.slice(i, i + 200)))) prev.set(`${w.session_id}|${w.horizon}`, w);
+  const changes: Record<string, unknown>[] = [];
   for (const s of sessions) {
     const changeDate = toZoned(new Date(s.started_at), acc.timezone_name).date;
     const evs = HORIZONS.map(h => evaluateChange({ changeDate, campaignIds: s.campaign_ids ?? [], rows, horizon: h, today, kind: s.kind }));
     out.set(s.id, evs);
+    for (const e of evs) {
+      const p = prev.get(`${s.id}|${e.horizon}`);
+      // cambio de veredicto: distinta lectura, confianza, estado o texto (el texto cambia con los números)
+      if (p && (p.reading !== e.reading || p.confidence !== e.confidence || p.status !== e.status || p.verdict !== e.verdict))
+        changes.push({ account_id: acc.id, session_id: s.id, horizon: e.horizon, from_status: p.status, to_status: e.status, from_reading: p.reading, to_reading: e.reading, from_confidence: p.confidence, to_confidence: e.confidence, from_verdict: p.verdict, to_verdict: e.verdict, matured: p.status !== "mature" && e.status === "mature" });
+    }
     for (const e of evs) upserts.push({ session_id: s.id, account_id: acc.id, horizon: e.horizon, starts_at: `${e.starts_at}T00:00:00Z`, ends_at: `${e.ends_at}T23:59:59Z`, status: e.status, metrics_before: e.treatment.before, metrics_after: e.treatment.after, control: e.control, delta: e.delta, confidence: e.confidence, verdict: e.verdict, caveats: e.caveats, baseline: e.baseline, agreement: e.agreement, reading: e.reading, missing_refs: e.missing_refs, computed_at: new Date().toISOString() });
   }
   if (upserts.length) await upsertChunks(db, "evaluation_windows", upserts, "session_id,horizon");
+  for (let i = 0; i < changes.length; i += 200) { const { error } = await db.from("verdict_changes").insert(changes.slice(i, i + 200)); if (error) throw new Error(error.message); }
   return out;
 }
 
