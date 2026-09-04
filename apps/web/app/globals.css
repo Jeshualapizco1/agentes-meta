@@ -1,11 +1,73 @@
 @import "tailwindcss";
+
+/* Tema oscuro · Bento UI + soft glow + gradient. Los glows son decorativos: nunca indican estado.
+   Semánticos (ok / crit / amber) conservan su significado en todas las pantallas. */
 @theme {
-  --color-paper: #F5F6F4; --color-surface: #FFFFFF; --color-ink: #1A1D21; --color-muted: #5C6470; --color-line: #D9DDD8;
-  --color-accent: #2F6B4F; --color-accent-soft: #E3EFE8; --color-amber: #B8862B; --color-amber-soft: #F6EDD8; --color-crit: #B3402E; --color-crit-soft: #F5E1DC;
-  --color-meta: #4B5BA6; --color-meta-soft: #E6E9F7;
-  --font-sans: "Source Sans 3", "Helvetica Neue", Arial, sans-serif; --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --font-serif: "Newsreader", Georgia, serif;
+  --color-bg: #0b1220;
+  --color-paper: #0e1729;                          /* campos de formulario y celdas "sin dato" */
+  --color-surface: rgba(20, 31, 54, 0.75);         /* cuerpo de tarjeta (sobre el fondo se ve #131c31) */
+  --color-surface-solid: #141f36;                  /* mismo tono sin transparencia (menús, rampas) */
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-ink: #e6ebf5;                            /* 14:1 sobre tarjeta */
+  --color-muted: #8b96b0;                          /* 5.6:1 sobre tarjeta */
+  --color-accent: #2563eb; --color-accent-2: #7c3aed; --color-accent-soft: rgba(99, 102, 241, 0.15);
+  --color-ok: #34d399;     --color-ok-soft: rgba(52, 211, 153, 0.15);
+  --color-crit: #fb7185;   --color-crit-soft: rgba(251, 113, 133, 0.15);
+  --color-amber: #fbbf24;  --color-amber-soft: rgba(251, 191, 36, 0.15);
+  --color-meta: #a5b4fc;   --color-meta-soft: rgba(165, 180, 252, 0.15);
+  --font-sans: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;   /* títulos y KPIs: sans geométrica (antes Newsreader) */
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;            /* cifras tabulares y etiquetas */
+  --radius-card: 20px;
+  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.45);
+  --shadow-hero: 0 0 60px rgba(59, 130, 246, 0.25);
+  --gradient-accent: linear-gradient(135deg, #2563eb, #7c3aed);
 }
-html { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
+
+html { background: var(--color-bg); color: var(--color-ink); font-family: var(--font-sans); color-scheme: dark; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(1200px 800px at 0% 0%, rgba(59, 130, 246, 0.18), transparent 60%) fixed, var(--color-bg);
+}
+
+/* Tarjeta base (Bento) */
+.card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Tarjeta héroe: mismo cuerpo + glow radial azul-violeta en una esquina + sombra exterior */
+.card-hero { overflow: hidden; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-hero); }
+.card-hero::before {
+  content: ""; position: absolute; pointer-events: none; z-index: 0;
+  top: -30%; right: -15%; width: 60%; height: 90%;
+  background: radial-gradient(closest-side, rgba(124, 58, 237, 0.38), rgba(59, 130, 246, 0.18), transparent);
+  filter: blur(24px);
+}
+.card-hero > * { position: relative; z-index: 1; }
+
+/* Acento primario: botones y línea principal de gráficas */
+.btn-accent {
+  background: var(--gradient-accent); color: #fff; border-radius: 12px; font-weight: 600;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.btn-accent:hover { box-shadow: var(--shadow-glow); }
+.btn-accent:active { transform: translateY(1px); }
+.text-gradient { background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.glow-line { filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.55)); }
+
+/* KPI héroe */
+.kpi-hero { font-size: clamp(48px, 5vw, 56px); line-height: 1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* Formularios sobre tarjeta oscura */
+input, select, textarea { background: var(--color-paper); color: var(--color-ink); border-color: var(--color-line); border-radius: 10px; }
+input::placeholder, textarea::placeholder { color: var(--color-muted); }
+select option { background: var(--color-surface-solid); color: var(--color-ink); }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.7); outline-offset: 2px; }
+
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }

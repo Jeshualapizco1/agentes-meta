@@ -7,7 +7,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const user = await currentUser();
   return (
     <html lang="es">
-      <head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" /></head>
+      <head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" /></head>
       <body className="min-h-screen">
         <header className="border-b border-line bg-surface">
           <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
