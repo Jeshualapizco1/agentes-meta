@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { currentUser } from "@/lib/supabase/server";
-import { engageBrake as engage } from "@agentes-meta/agents";
+import { engageBrake as engage, executeProposal, metaFromEnv } from "@agentes-meta/agents";
 
 function back(account: string, q: Record<string, string>): never { redirect(`/hoy?account=${account}&${new URLSearchParams(q).toString()}`); }
 
@@ -30,7 +30,10 @@ export async function decideProposal(form: FormData) {
     const { data: r } = await sb.from("rules").select("approved_streak").eq("id", x.rule_id).single();
     await sb.from("rules").update({ approved_streak: decision === "aprobada" && !corrected ? Number(r?.approved_streak ?? 0) + 1 : 0, updated_by: user.email }).eq("id", x.rule_id);
   }
-  revalidatePath("/hoy"); back(account, { decidido: corrected ? "aprobada con corrección" : decision });
+  // aprobada → el ejecutor corre toda la tubería; con dry_run (por defecto) simula y no toca Meta
+  let note = "";
+  if (decision === "aprobada") { try { const r = await executeProposal(sb, metaFromEnv(), id); note = ` · ${r.status}: ${r.note}`; } catch (e) { note = ` · ejecución: ${e instanceof Error ? e.message : String(e)}`; } }
+  revalidatePath("/hoy"); back(account, { decidido: `${corrected ? "aprobada con corrección" : decision}${note}` });
 }
 
 /** Cualquier usuario puede frenar la cuenta. */

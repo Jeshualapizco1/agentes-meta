@@ -9,6 +9,7 @@
  */
 import { strategistWatch, strategistPass } from "./strategist.js";
 import { notifyPending, telegramFromEnv } from "./telegram.js";
+import { executeApproved } from "./executor.js";
 import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, fetchAll, type Db } from "@agentes-meta/db";
@@ -191,6 +192,8 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     const brake = await strategistWatch(db, { id: acc.id, name: acc.name, timezone_name: info.timezone_name }, { accountStatus: info.account_status, ceiling: check, log });
     strategist = await strategistPass(db, { id: acc.id, name: acc.name, timezone_name: info.timezone_name }, { ceiling: check, accountStatus: info.account_status, log });
     if (brake.length) strategist.brake = brake;
+    // propuestas aprobadas pendientes de ejecutar (dry_run por defecto: simulación completa sin tocar Meta)
+    const executed = await executeApproved(db, meta, acc.id, log); if (executed) strategist.executed = executed;
   } catch (e) { log(`⚠ estratega ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); strategist = { error: 1 }; }
 
   // 7. Día sin cambios humanos → se registra explícitamente

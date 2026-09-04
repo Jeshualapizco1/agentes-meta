@@ -3,3 +3,4 @@ export { runAnalyst, buildWeekly, saveWeekly, evaluateSessions } from "./analyst
 
 export * from "./strategist.js";
 export * from "./telegram.js";
+export * from "./executor.js";

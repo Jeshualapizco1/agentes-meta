@@ -24,6 +24,9 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   const sinceDate = new Date(Date.now() - 21 * 86400_000).toISOString().slice(0, 10);
   const since14 = new Date(Date.now() - 14 * 86400_000).toISOString();
   const since7 = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const [{ data: recentDecisions }] = await Promise.all([
+    sb.from("proposals").select("id,status,action,entity_name,before_value,after_value,decided_by,decided_at,corrected,execution_note").eq("account_id", accountId).in("status", ["aprobada", "simulada", "ejecutada", "fallida", "rechazada"]).order("decided_at", { ascending: false }).limit(5),
+  ]);
   const [{ data: proposals }, { data: brake }, { data: mine }, { data: lastPass }] = await Promise.all([
     sb.from("proposals").select("id,rule_name,action,entity_name,entity_level,before_value,after_value,evidence,locks,created_at,expires_at").eq("account_id", accountId).eq("status", "pendiente").order("created_at", { ascending: false }),
     sb.from("emergency_brakes").select("*").eq("account_id", accountId).maybeSingle(),
@@ -142,6 +145,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
               </details>
               <form action={decideProposal} className="mt-2 flex flex-wrap gap-2"><input type="hidden" name="id" value={x.id} /><input type="hidden" name="account" value={accountId} />{typeof x.after_value === "number" && <input name="after" type="number" step="any" defaultValue={x.after_value} title="Corregir el monto: cuenta como corrección humana (razón obligatoria) y reinicia la racha de la regla" className="w-28 rounded-lg border border-line bg-paper px-2 py-1 text-[12px]" />}<input name="reason" placeholder="Razón (obligatoria al rechazar o corregir)" className="min-w-40 flex-1 rounded-lg border border-line bg-paper px-2 py-1 text-[12px]" /><button name="decision" value="aprobada" className="rounded-xl bg-ok-soft px-3 py-1 text-[12px] text-ok">Aprobar</button><button name="decision" value="rechazada" className="rounded-xl bg-crit-soft px-3 py-1 text-[12px] text-crit">Rechazar</button></form>
             </li>))}</ul> : <p className="text-sm text-muted">{prof ? "Sin propuestas pendientes. El estratega corre una vez al día con el día anterior cerrado; hoy solo hay reglas de candado (techo), las de acción llegan con el cuestionario de Eduardo." : "Captura el perfil de la cuenta en Configuración para que el estratega tenga candados."}</p>}
+          {(recentDecisions ?? []).length > 0 && <details className="mt-3"><summary className="cursor-pointer font-mono text-[11px] text-muted">últimas decisiones ({(recentDecisions ?? []).length})</summary><ul className="mt-1 flex flex-col gap-1 text-[12px]">{(recentDecisions ?? []).map(d => <li key={d.id}><Chip tone={d.status === "ejecutada" ? "ok" : d.status === "simulada" ? "meta" : d.status === "fallida" ? "crit" : d.status === "rechazada" ? "crit" : "amber"}>{d.status}</Chip> {RULE_ACTION_LABEL[d.action as RuleAction] ?? d.action} · {d.entity_name ?? "—"} {String(d.before_value ?? "—")} → {String(d.after_value ?? "—")}{d.corrected && <span className="text-amber"> (corregida)</span>} <span className="text-muted">· {d.decided_by?.split("@")[0]}{d.execution_note && <> · {d.execution_note}</>}</span></li>)}</ul></details>}
           <div className={`mt-3 rounded-xl px-3 py-2 text-[12px] ${brake?.active ? "bg-crit-soft" : "bg-white/5"}`}>
             {brake?.active ? (<>
               <p className="font-semibold text-crit">⛔ Freno de emergencia activo</p>

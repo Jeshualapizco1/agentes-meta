@@ -20,6 +20,7 @@ export async function saveProfile(form: FormData) {
     max_cumulative_change_pct: num(form.get("max_cumulative_change_pct")) ?? 35, cumulative_window_days: num(form.get("cumulative_window_days")) ?? 7,
     max_committed_budget_factor: num(form.get("max_committed_budget_factor")) ?? 1.3,
     exploration_budget_pct: num(form.get("exploration_budget_pct")) ?? 10,
+    dry_run: form.get("dry_run") != null,
     whitelist_campaign_ids: form.getAll("whitelist").map(String),
     hard_noes: String(form.get("hard_noes") ?? "").trim() || null,
     mode: (["off", "semi", "auto"].includes(String(form.get("mode"))) ? String(form.get("mode")) : "off") as "off" | "semi" | "auto",
