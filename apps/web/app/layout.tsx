@@ -11,8 +11,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="min-h-screen">
         <header className="border-b border-line bg-surface">
           <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
-            <Link href="/bitacora" className="font-serif text-xl font-semibold">Agentes Meta</Link>
+            <Link href="/hoy" className="font-serif text-xl font-semibold">Agentes Meta</Link>
             <nav className="flex gap-4 text-sm text-muted">
+              <Link href="/hoy" className="hover:text-ink">Hoy</Link>
               <Link href="/bitacora" className="hover:text-ink">Bitácora</Link>
               <Link href="/cuenta" className="hover:text-ink">Cuenta</Link>
               <Link href="/horarios" className="hover:text-ink">Horarios</Link>

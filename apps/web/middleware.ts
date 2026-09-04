@@ -9,7 +9,7 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await sb.auth.getUser();
   const path = req.nextUrl.pathname;
   if (!user && !PUBLIC.some(p => path.startsWith(p))) { const url = req.nextUrl.clone(); url.pathname = "/login"; url.searchParams.set("next", path); return NextResponse.redirect(url); }
-  if (user && path === "/login") { const url = req.nextUrl.clone(); url.pathname = "/bitacora"; url.search = ""; return NextResponse.redirect(url); }
+  if (user && path === "/login") { const url = req.nextUrl.clone(); url.pathname = "/hoy"; url.search = ""; return NextResponse.redirect(url); }
   return res;
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

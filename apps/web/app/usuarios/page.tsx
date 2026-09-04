@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function Usuarios({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const p = await searchParams; const me = await requireUser("/usuarios"); const sb = db();
   const { data: mine } = await sb.from("app_users").select("role").eq("email", me.email!.toLowerCase()).maybeSingle();
-  if (mine?.role !== "admin") redirect("/bitacora");
+  if (mine?.role !== "admin") redirect("/hoy");
   const [{ data: users }, auth] = await Promise.all([sb.from("app_users").select("*").order("email"), listAuthUsers().catch(() => [])]);
   const byEmail = new Map(auth.map(u => [u.email?.toLowerCase(), u]));
   return (
