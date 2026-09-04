@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalize, groupEvents, groupSessions, sessionId, groupId, relinkByEvents, relinkByWindow, uuidV5 } from "./index.js";
+import { normalize, groupEvents, groupSessions, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, uuidV5 } from "./index.js";
 import type { RawActivity } from "./types.js";
 
 const ACC = "1703313583465547";
@@ -57,5 +57,47 @@ describe("relinkByWindow (respaldo sin huellas)", () => {
       { id: "nueva", actorId: "7", start: d("2026-08-01T09:58:30Z"), end: d("2026-08-01T10:01:00Z") },
     ];
     expect(relinkByWindow(olds, news).get("old")).toBe("nueva");
+  });
+});
+
+describe("planRelink (anotaciones y ventanas antes de borrar)", () => {
+  const evs = [raw({ event_time: "2026-08-01T10:00:00+0000" }), raw({ event_time: "2026-08-01T10:01:00+0000", object_id: "10" })];
+  it("sesión anotada con ventanas evaluadas + evento tardío → sobrevive todo (anotación y 3 ventanas a la sesión nueva)", () => {
+    const before = build(evs);
+    const oldS = sessionId(before.sessions[0]!), oldG = groupId(before.groups[0]!);
+    const after = build([...evs, raw({ event_time: "2026-08-01T09:58:30+0000", object_id: "11" })]);
+    const newS = sessionId(after.sessions[0]!);
+    const mapSession = relinkByEvents(before.sessMembers, after.sessMembers), mapGroup = relinkByEvents(before.groupMembers, after.groupMembers);
+    const staleSessions = [...before.sessMembers.keys()].filter(id => !after.sessMembers.has(id));
+    const staleGroups = [...before.groupMembers.keys()].filter(id => !after.groupMembers.has(id));
+    expect(staleSessions).toEqual([oldS]); expect(staleGroups).toEqual([]);
+    const plan = planRelink({ mapSession, mapGroup, staleSessions, staleGroups,
+      annotations: [{ id: "n1", session_id: oldS, group_id: oldG }],
+      windows: ["72h", "7d", "14d"].map(h => ({ id: `w-${h}`, session_id: oldS, group_id: null, horizon: h })) });
+    expect(plan.errors).toEqual([]); expect(plan.dropWindows).toEqual([]);
+    expect(plan.annotations).toEqual([{ id: "n1", patch: { session_id: newS } }]);   // el grupo conserva su ID: no se toca
+    expect(plan.windows.map(w => w.patch.session_id)).toEqual([newS, newS, newS]);
+  });
+  it("dos sesiones anotadas que un evento tardío funde en una: las anotaciones van a la sobreviviente y las ventanas duplicadas se sueltan", () => {
+    // 10:00 y 10:10 son dos sesiones (hueco > 3 min); eventos tardíos a las 10:02, 10:05 y 10:08 las unen en la que empieza a las 10:00 (misma ID)
+    const two = [raw({ event_time: "2026-08-01T10:00:00+0000" }), raw({ event_time: "2026-08-01T10:10:00+0000", object_id: "10" })];
+    const before = build(two); expect(before.sessions).toHaveLength(2);
+    const [s1, s2] = before.sessions.map(s => sessionId(s));
+    const after = build([...two, raw({ event_time: "2026-08-01T10:02:00+0000", object_id: "12" }), raw({ event_time: "2026-08-01T10:05:00+0000", object_id: "13" }), raw({ event_time: "2026-08-01T10:08:00+0000", object_id: "14" })]);
+    expect(after.sessions).toHaveLength(1); expect(sessionId(after.sessions[0]!)).toBe(s1);
+    const mapSession = relinkByEvents(before.sessMembers, after.sessMembers);
+    const plan = planRelink({ mapSession, mapGroup: new Map(), staleSessions: [s2!], staleGroups: [],
+      annotations: [{ id: "n1", session_id: s1!, group_id: null }, { id: "n2", session_id: s2!, group_id: null }],
+      windows: [{ id: "w1", session_id: s1!, group_id: null, horizon: "7d" }, { id: "w2", session_id: s2!, group_id: null, horizon: "7d" }, { id: "w3", session_id: s2!, group_id: null, horizon: "14d" }] });
+    expect(plan.errors).toEqual([]);
+    expect(plan.annotations).toEqual([{ id: "n2", patch: { session_id: s1 } }]);
+    expect(plan.dropWindows.map(d => d.id)).toEqual(["w2"]);                 // choca con w1 (misma sesión, mismo horizonte)
+    expect(plan.windows).toEqual([{ id: "w3", patch: { session_id: s1 } }]); // 14d no chocaba: se re-enlaza
+  });
+  it("anotación sin sucesora es error (no se borra nada); ventana sin sucesora se suelta con razón", () => {
+    const plan = planRelink({ mapSession: new Map(), mapGroup: new Map(), staleSessions: ["s-old"], staleGroups: ["g-old"],
+      annotations: [{ id: "n1", session_id: "s-old", group_id: null }], windows: [{ id: "w1", session_id: "s-old", group_id: null, horizon: "72h" }, { id: "w2", session_id: null, group_id: "g-old", horizon: "72h" }] });
+    expect(plan.errors).toHaveLength(1); expect(plan.annotations).toEqual([]);
+    expect(plan.dropWindows.map(d => d.id).sort()).toEqual(["w1", "w2"]);
   });
 });

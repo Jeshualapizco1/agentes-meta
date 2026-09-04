@@ -55,3 +55,63 @@ export function relinkByWindow(olds: { id: string; actorId: string; start: Date;
   }
   return out;
 }
+
+/**
+ * Plan de re-enlace antes de borrar sesiones/grupos viejos. Puro: no toca la base, solo dice qué actualizar y qué soltar.
+ *  - Anotaciones (las escribió el equipo): se re-enlazan a la sucesora; si no hay sucesora se devuelve un error y el
+ *    collector no borra nada.
+ *  - Ventanas de evaluación (derivadas, el analista las recalcula en cada corrida): se re-enlazan a la sesión/grupo
+ *    sucesor; si chocan con el índice único (sesión, horizonte) —dos sesiones viejas que se fundieron en una— o si no hay
+ *    sucesor, se sueltan con razón. Nunca se deja una ventana apuntando a un ID que va a desaparecer.
+ */
+export interface RelinkRow { id: string; session_id: string | null; group_id: string | null }
+export interface RelinkWindowRow extends RelinkRow { horizon: string }
+export interface RelinkPlan {
+  annotations: { id: string; patch: { session_id?: string; group_id?: string | null } }[];
+  windows: { id: string; patch: { session_id?: string; group_id?: string | null } }[];
+  dropWindows: { id: string; reason: string }[];
+  errors: string[];
+}
+export function planRelink(o: { mapSession: Map<string, string>; mapGroup: Map<string, string>; staleSessions: Iterable<string>; staleGroups: Iterable<string>; annotations: RelinkRow[]; windows: RelinkWindowRow[] }): RelinkPlan {
+  const staleS = new Set(o.staleSessions), staleG = new Set(o.staleGroups);
+  const plan: RelinkPlan = { annotations: [], windows: [], dropWindows: [], errors: [] };
+  for (const n of o.annotations) {
+    const patch: { session_id?: string; group_id?: string | null } = {};
+    if (n.session_id && staleS.has(n.session_id)) {
+      const to = o.mapSession.get(n.session_id);
+      if (!to) { plan.errors.push(`La anotación ${n.id} está en la sesión ${n.session_id}, que desaparecería sin sucesora. No se borra nada.`); continue; }
+      patch.session_id = to;
+    }
+    if (n.group_id && staleG.has(n.group_id)) patch.group_id = o.mapGroup.get(n.group_id) ?? null;
+    if (Object.keys(patch).length) plan.annotations.push({ id: n.id, patch });
+  }
+  // claves ocupadas por ventanas que sobreviven tal cual (sesión o grupo no viejo)
+  const takenS = new Set<string>(), takenG = new Set<string>();
+  for (const w of o.windows) {
+    if (w.session_id && !staleS.has(w.session_id)) takenS.add(`${w.session_id}|${w.horizon}`);
+    if (!w.session_id && w.group_id && !staleG.has(w.group_id)) takenG.add(`${w.group_id}|${w.horizon}`);
+  }
+  for (const w of o.windows) {
+    const patch: { session_id?: string; group_id?: string | null } = {};
+    if (w.session_id && staleS.has(w.session_id)) {
+      const to = o.mapSession.get(w.session_id);
+      if (!to) { plan.dropWindows.push({ id: w.id, reason: `la sesión ${w.session_id} desaparece sin sucesora` }); continue; }
+      const key = `${to}|${w.horizon}`;
+      if (takenS.has(key)) { plan.dropWindows.push({ id: w.id, reason: `la sesión sucesora ${to} ya tiene ventana ${w.horizon}` }); continue; }
+      takenS.add(key); patch.session_id = to;
+    }
+    if (w.group_id && staleG.has(w.group_id)) {
+      const to = o.mapGroup.get(w.group_id);
+      if (!w.session_id) {
+        // ventana heredada (solo por grupo): el grupo es su única ancla
+        if (!to) { plan.dropWindows.push({ id: w.id, reason: `el grupo ${w.group_id} desaparece sin sucesor` }); continue; }
+        const key = `${to}|${w.horizon}`;
+        if (takenG.has(key)) { plan.dropWindows.push({ id: w.id, reason: `el grupo sucesor ${to} ya tiene ventana ${w.horizon}` }); continue; }
+        takenG.add(key);
+      }
+      patch.group_id = to ?? null;
+    }
+    if (Object.keys(patch).length) plan.windows.push({ id: w.id, patch });
+  }
+  return plan;
+}

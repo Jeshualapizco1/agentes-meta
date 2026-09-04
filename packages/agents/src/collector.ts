@@ -7,7 +7,7 @@
  *  4. Insights diarios y por hora de Meta.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
-import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
@@ -128,8 +128,10 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
  *  1. lee eventos del rango y calcula grupos/sesiones con IDs deterministas (core);
  *  2. lee la membresía vieja (qué huellas tenía cada sesión/grupo del rango);
  *  3. upsert de sesiones y grupos por id;
- *  4. re-enlaza annotations y evaluation_windows cuyo id viejo desapareció al nuevo que contiene los mismos eventos
- *     (respaldo: mismo actor y ventana de tiempo traslapada, por si una corrida anterior quedó a medias);
+ *  4. re-enlaza annotations y evaluation_windows (por sesión y por grupo) cuyo id viejo desapareció al nuevo que contiene
+ *     los mismos eventos (respaldo: mismo actor y ventana traslapada, por si una corrida anterior quedó a medias). El plan
+ *     lo arma `planRelink` (core, con pruebas): anotación sin sucesora = error y no se borra nada; ventana que chocaría con
+ *     el índice único o sin sucesor = se suelta (el analista la recalcula en la misma corrida);
  *  5. reasigna change_events.group_id (después del re-enlace: si esto falla, la siguiente corrida aún ve la membresía vieja);
  *  6. borra las sesiones/grupos del rango que ya no existen (a estas alturas nadie los referencia).
  */
@@ -191,25 +193,30 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   for (const [k, v] of relinkByWindow(win(oldSess), sessions.map((s, i) => ({ id: sessIds[i]!, actorId: s.actorId, start: s.startedAt, end: s.endedAt })))) if (!mapS.has(k)) mapS.set(k, v);
   for (const [k, v] of relinkByWindow(win(oldGroups), groups.map((g, i) => ({ id: gIds[i]!, actorId: g.actorId, start: g.startedAt, end: g.endedAt })))) if (!mapG.has(k)) mapG.set(k, v);
   const staleSess = oldSessIds.filter(id => !newSessMembers.has(id)), staleGroups = oldGroupIds.filter(id => !newGroupMembers.has(id));
-  if (staleSess.length) {
-    const notes = await selectIn<{ id: string; session_id: string; group_id: string | null }>("annotations", "id,session_id,group_id", "session_id", staleSess);
-    for (const n of notes) {
-      const to = mapS.get(n.session_id as string);
-      if (!to) throw new Error(`La anotación ${n.id} está en la sesión ${n.session_id}, que desaparecería sin sucesora. No se borra nada.`);
-      const patch: Record<string, unknown> = { session_id: to };
-      if (n.group_id && staleGroups.includes(n.group_id as string)) patch.group_id = mapG.get(n.group_id as string) ?? null;
-      const { error: ue } = await db.from("annotations").update(patch).eq("id", n.id); fail(ue); relinked++;
-    }
-  }
-  if (staleGroups.length) {
-    const notes = await selectIn<{ id: string; group_id: string }>("annotations", "id,group_id", "group_id", staleGroups);
-    for (const n of notes) { const { error: ue } = await db.from("annotations").update({ group_id: mapG.get(n.group_id as string) ?? null }).eq("id", n.id); fail(ue); relinked++; }
-    const wins = await selectIn<{ id: string; group_id: string }>("evaluation_windows", "id,group_id", "group_id", staleGroups);
-    for (const w of wins) {
-      const to = mapG.get(w.group_id as string);
-      if (!to) throw new Error(`La ventana de evaluación ${w.id} apunta al grupo ${w.group_id}, que desaparecería sin sucesor. No se borra nada.`);
-      const { error: ue } = await db.from("evaluation_windows").update({ group_id: to }).eq("id", w.id); fail(ue); relinked++;
-    }
+  if (staleSess.length || staleGroups.length) {
+    // todo lo que apunta a una sesión o grupo que va a desaparecer (por sesión Y por grupo: evaluation_windows tiene ambas FK desde la 0009)
+    const byId = <T extends { id: string }>(rows: T[]) => [...new Map(rows.map(r => [r.id, r])).values()];
+    const notes = byId([
+      ...(staleSess.length ? await selectIn<RelinkRow>("annotations", "id,session_id,group_id", "session_id", staleSess) : []),
+      ...(staleGroups.length ? await selectIn<RelinkRow>("annotations", "id,session_id,group_id", "group_id", staleGroups) : []),
+    ]);
+    const staleWins = byId([
+      ...(staleSess.length ? await selectIn<RelinkWindowRow>("evaluation_windows", "id,session_id,group_id,horizon", "session_id", staleSess) : []),
+      ...(staleGroups.length ? await selectIn<RelinkWindowRow>("evaluation_windows", "id,session_id,group_id,horizon", "group_id", staleGroups) : []),
+    ]);
+    // ventanas ya existentes en las sesiones/grupos sucesores (para respetar los índices únicos sesión|horizonte y grupo|horizonte)
+    const targets = [...new Set([...mapS.values(), ...mapG.values()])];
+    const targetWins = byId([
+      ...(targets.length ? await selectIn<RelinkWindowRow>("evaluation_windows", "id,session_id,group_id,horizon", "session_id", targets) : []),
+      ...(targets.length ? await selectIn<RelinkWindowRow>("evaluation_windows", "id,session_id,group_id,horizon", "group_id", targets) : []),
+    ]);
+    const plan = planRelink({ mapSession: mapS, mapGroup: mapG, staleSessions: staleSess, staleGroups, annotations: notes, windows: byId([...staleWins, ...targetWins]) });
+    if (plan.errors.length) throw new Error(plan.errors.join(" "));
+    // primero soltar las ventanas que chocarían, luego mover las demás, al final las anotaciones
+    for (let i = 0; i < plan.dropWindows.length; i += 200) fail((await db.from("evaluation_windows").delete().in("id", plan.dropWindows.slice(i, i + 200).map(d => d.id))).error);
+    for (const w of plan.windows) { const { error: ue } = await db.from("evaluation_windows").update(w.patch).eq("id", w.id); fail(ue); relinked++; }
+    for (const n of plan.annotations) { const { error: ue } = await db.from("annotations").update(n.patch).eq("id", n.id); fail(ue); relinked++; }
+    if (plan.dropWindows.length) console.log(`  ↻ ${plan.dropWindows.length} ventana(s) de evaluación soltadas (el analista las recalcula): ${plan.dropWindows.map(d => d.reason).slice(0, 3).join("; ")}`);
   }
 
   // 5. reasignar eventos a sus grupos nuevos
