@@ -34,6 +34,21 @@ describe("evaluateChange", () => {
     const p = evaluateChange({ changeDate: "2026-08-20", campaignIds: ["A"], rows: rows(4.5, 3), horizon: "14d", today: "2026-08-25" });
     expect(p.status).toBe("preliminary"); expect(p.verdict).toMatch(/Preliminar: van 4 de 14 días/); expect(p.confidence).not.toBe("high");
   });
+  it("cambio de presupuesto: salvedad de presupuesto compartido con el gasto del control", () => {
+    const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(4.5, 3), horizon: "7d", today: "2026-08-25", kind: "budget" });
+    expect(e.delta.control_spend_pct).toBe(0);
+    expect(e.caveats).toEqual([expect.stringMatching(/^Presupuesto compartido/)]); expect(e.caveats[0]).toMatch(/no es independiente/);
+  });
+  it("control pequeño: la confianza baja a 'low' y se dice; gasto del control movido ≥ 20 % también se dice", () => {
+    // B (control) gasta 100 y compra 0.2 al día → 5.6 compras en 14 días < 10; A tiene 5×14 = 70 compras (alta si el control fuera bueno)
+    const small: DailyRow[] = rows(4.5, 3).map(r => (r.entity_id === "B" ? { ...r, spend: 100, purchases: 0.2, value: 300 } : r));
+    const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: small, horizon: "7d", today: "2026-08-25" });
+    expect(e.confidence).toBe("low"); expect(e.caveats).toEqual([expect.stringMatching(/^Control pequeño/)]);
+    const shifted: DailyRow[] = rows(4.5, 3).map(r => (r.entity_id === "B" && r.date > "2026-08-10" ? { ...r, spend: 1000, value: 3000 } : r));
+    const f = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: shifted, horizon: "7d", today: "2026-08-25" });
+    expect(f.delta.control_spend_pct).toBe(-50); expect(f.caveats).toEqual([expect.stringMatching(/se movió -50%/)]);
+    expect(evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(4.5, 3), horizon: "7d", today: "2026-08-25" }).caveats).toEqual([]);
+  });
   it("sin campañas identificadas se evalúa toda la cuenta sin control", () => {
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: [], rows: rows(4.5, 4.5), horizon: "7d", today: "2026-08-25" });
     expect(e.control).toBeNull(); expect(e.verdict).toMatch(/sin control/);
@@ -46,5 +61,11 @@ describe("buildWeeklyEvidence", () => {
     expect(ev.period).toEqual({ start: "2026-08-18", end: "2026-08-24" }); expect(ev.totals.week.days).toBe(7);
     expect(ev.campaigns.best.map(c => c.name)).toEqual(["Alfa", "Beta"]); expect(ev.campaigns.worst).toEqual([]);   // con pocas campañas no se repiten en "peores"
     expect(ev.totals.spend_pct).toBe(0);
+    expect(ev.campaigns.best.map(c => c.ref)).toEqual(["C1", "C2"]); expect(ev.refs.totals).toBe("T");
+  });
+  it("las sesiones reciben referencia S1, S2… en orden", () => {
+    const s = (id: string) => ({ id, started_at: "2026-08-20T10:00:00Z", actor_name: "Eduardo", summary: "x", resets_learning: false, kind: "budget", evaluations: [] });
+    const ev = buildWeeklyEvidence({ periodEnd: "2026-08-24", rows: rows(3, 3), campaignNames: new Map(), sessions: [s("a"), s("b")], targets: { target_roas: null, breakeven_roas: null, target_cpa: null, daily_spend_ceiling: null } });
+    expect(ev.sessions.map(x => x.ref)).toEqual(["S1", "S2"]);
   });
 });
