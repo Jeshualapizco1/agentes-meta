@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { fmtTime } from "@/lib/format";
 import { TimeSeries, type Marker, type Point } from "@/components/TimeSeries";
 import { Chip } from "@/components/Chip";
+import { Card } from "@/components/Card";
+import { Kpi } from "@/components/Kpi";
 export const dynamic = "force-dynamic";
 
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
@@ -50,8 +52,8 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
   const last7 = closed.slice(-7), prev7 = closed.slice(-14, -7);
   const sum = (ds: string[], k: keyof Day) => ds.reduce((n, d) => n + (meta(d)[k] as number), 0);
   const sumS = (ds: string[], k: keyof Shop) => ds.reduce((n, d) => n + ((shop.get(d)?.[k] as number | undefined) ?? 0), 0);
-  const kpi = (label: string, cur: number | null, prev: number | null, fmt: (v: number) => string, higherIsBetter = true, hint?: string) => { const delta = cur != null && prev != null && prev > 0 ? ((cur - prev) / prev) * 100 : null; const good = delta == null ? null : (delta >= 0) === higherIsBetter; return (
-    <div className="rounded-md border border-line bg-surface px-4 py-3"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{label}</p><p className="tnum font-serif text-2xl">{cur == null ? "—" : fmt(cur)}</p><p className="tnum font-mono text-[11px] text-muted">7 días previos {prev == null ? "—" : fmt(prev)}{delta != null && <span className={good ? "text-accent" : "text-crit"}> · {delta >= 0 ? "+" : ""}{delta.toFixed(0)}%</span>}{hint && <span> · {hint}</span>}</p></div>); };
+  const kpi = (label: string, cur: number | null, prev: number | null, fmt: (v: number) => string, higherIsBetter = true, hint?: string) => (
+    <Card as="div" className="!p-4"><Kpi label={label} value={cur} prev={prev} format={fmt} higherIsBetter={higherIsBetter} hint={hint} /></Card>);
   const s7 = sum(last7, "spend"), sp7 = sum(prev7, "spend"), v7 = sum(last7, "value"), vp7 = sum(prev7, "value"), c7 = sum(last7, "purchases"), cp7 = sum(prev7, "purchases");
   const sa7 = sum(last7, "spendAll"), sap7 = sum(prev7, "spendAll");
   const n7 = sumS(last7, "net"), np7 = sumS(prev7, "net"), o7 = sumS(last7, "orders"), op7 = sumS(prev7, "orders"), nc7 = sumS(last7, "newc"), ncp7 = sumS(prev7, "newc"), nr7 = sumS(last7, "newcRev");
