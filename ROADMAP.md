@@ -35,22 +35,40 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 
 ## Fase 3 · Agente semanal (semanas 5-6)
 - [x] Ventanas de evaluación por sesión a 72 h, 7 d y 14 d: campañas tocadas vs. resto de la cuenta, antes vs. después, solo días completos (core con pruebas; tabla `evaluation_windows`)
-- [ ] Entidad experimento con hipótesis y criterio de éxito declarados antes
+- [ ] Entidad experimento con hipótesis y criterio de éxito declarados antes (propósito (b): veredicto automático contra el criterio)
+- [x] Definiciones por escrito en `docs/05-analista.md`; salvedades por ventana (presupuesto compartido, control pequeño, control inestable); narrativa con cita obligatoria de la fila de evidencia — 2026-09-03
 - [x] Paquete de evidencia determinista (`buildWeeklyEvidence`) + narrativa con Claude (claude-opus-5; requiere `ANTHROPIC_API_KEY` en secretos)
 - [x] Corrida automática los lunes 00:17 CDMX (cierre del domingo) en el mismo workflow del collector + botón "Forzar análisis" en /analisis
 - [x] Veredicto pendiente → preliminar → maduro por ventana; reporte en /analisis
 - [ ] Reporte enviable (correo/WhatsApp) — depende del canal de alertas
 - [ ] Criterio: el media buyer acepta el reporte como justo dos semanas seguidas
 
-## Fase 4 · Agente estratega (semanas 7-8)
-- [ ] Reglas de escalar/recortar con umbrales configurables y candados (máximo por cambio, espera, tope diario, lista blanca)
-- [ ] Matriz de dayparting día × 4 bloques con significancia mínima (≥ 4 semanas)
-- [ ] Alertas de reinicio de aprendizaje y highlights diarios/semanales
-- [ ] Cola de propuestas con aprobar/rechazar y razón; modos off/semi por cuenta; freno de emergencia
-- [ ] Criterio: una recomendación por semana que el equipo decida ejecutar
+## Fase 4 · Agente estratega en modo semi (semanas 7-8)
+Propósito (c) del proyecto: automatizar la operación. El destino es **auto con candados**; esta fase construye el camino: toda acción nace como propuesta, se aprueba en un clic y deja rastro para que la regla se gane el modo auto.
 
-## Fase 4b · Ejecución asistida (después)
-- [ ] Write-ahead log; movimientos atados con rollback y congelamiento 72 h; matriz de acciones permitidas
+**Modelo de datos**
+- [ ] `rules`: reglas versionadas por cuenta (`kind`: scale | cut | pause | daypart | learning_alert; umbrales; candados propios; `mode` off | semi | auto; `version`; `approved_streak`; `promote_after` = N, default 10; historial de cambios).
+- [ ] `proposals`: propuesta con `rule_id` y versión, entidad objetivo, acción (`before` → `after`, p. ej. presupuesto 800 → 936), evidencia (referencias a filas: ventanas, insights, sesiones), candados verificados, `expires_at` (48 h), `status` pending | approved | rejected | expired | executed | rolled_back, `decided_by`, `decided_at`, `decision_note`, `corrected` (el aprobador cambió el monto = corrección).
+- [ ] Candados por cuenta (perfil): máximo % por cambio (hoy 17 %), espera mínima entre cambios a la misma entidad (72 h), tope de gasto diario, piso, lista blanca de campañas, noes duros. Una propuesta que viola un candado no se crea; se registra como `blocked` en `agent_runs.stats`.
+
+**Reglas v1** (una recomendación por semana que el equipo decida ejecutar)
+- [ ] Escalar: ventana 7d madura con confianza ≥ media, ROAS ≥ objetivo y `diff_roas_pts ≥ +10` sin salvedad de presupuesto compartido → subir presupuesto ≤ máximo por cambio.
+- [ ] Recortar: ROAS < equilibrio dos ventanas maduras seguidas y ≥ 30 compras → bajar presupuesto ≤ máximo por cambio; pausar solo si ROAS < equilibrio × 0.6.
+- [ ] Alerta de reinicio de aprendizaje y highlights diarios/semanales (sin acción, solo informativos).
+- [ ] Dayparting: matriz día × 4 bloques con ≥ 4 semanas de datos; con presupuesto diario solo se propone como texto (Meta no lo aplica).
+
+**Cola de propuestas en Hoy (modo semi)**
+- [ ] Tarjeta por propuesta: qué, por qué (evidencia citada), candados que pasó, botones Aprobar / Rechazar con razón obligatoria al rechazar; editar el monto cuenta como corrección.
+- [ ] Modo por cuenta y por regla (off / semi / auto) en Configuración; freno de emergencia por cuenta (pone todo en off y expira las pendientes).
+- [ ] Criterio de éxito: cuatro semanas seguidas con al menos una propuesta aprobada por semana y menos de 30 % rechazadas.
+
+## Fase 4b · Ejecución y paso a auto (después)
+- [ ] **Ejecutor:** aplica propuestas `approved` (o `pending` de reglas en auto) con **write-ahead log** en `executions`: `logged` (intención + snapshot previo) → `sent` (orden a Meta, respuesta cruda) → `confirmed` (Meta responde ok) → `verified` (la siguiente corrida del collector ve el cambio en el log de actividad con nuestro actor) | `failed`. Nunca se manda una orden sin fila `logged` previa.
+- [ ] **Rollback:** cada ejecución guarda la acción inversa; botón "Revertir" a un clic que pasa por el mismo WAL; congelamiento de 72 h de la entidad después de cada ejecución (ninguna regla la vuelve a tocar).
+- [ ] **Matriz de acciones permitidas:** presupuesto ± dentro de candados, pausar/activar ad set o anuncio, programación. Nunca en auto: crear campañas, cambiar segmentación, objetivo o puja, borrar nada.
+- [ ] **Paso a auto por regla:** una regla pasa de semi a auto cuando acumula N propuestas aprobadas seguidas **sin corrección** (N en `rules.promote_after`, default 10) y sin rollback en 30 días. Cualquier rechazo, corrección o rollback pone `approved_streak = 0` y regresa la regla a semi. En auto, la propuesta se ejecuta tras un periodo de gracia (2 h) durante el cual se puede detener desde Hoy; queda registrada igual que una aprobada.
+- [ ] Token de escritura: System User de Meta con permiso `ads_management` solo para la cuenta operada; el token de lectura sigue aparte.
+- [ ] Criterio de éxito: una regla llega a auto y opera dos semanas sin rollback ni intervención.
 
 ## Fase 5 · Calibración (continuo)
 - [ ] Cada error vuelve como regla versionada; veredicto humano por propuesta alimenta umbrales
