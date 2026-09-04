@@ -77,8 +77,8 @@ suman casi el doble del techo y Meta entrega alrededor de la mitad.
 
 | # | Pregunta | Respuesta |
 |---|---|---|
-| G1 | ¿El techo [$15,000] se mide contra el gasto real del último día cerrado (lo que hace hoy el collector en cada pasada) o contra la suma de presupuestos activos? ¿O contra ambos con distinta severidad? | |
-| G2 | ¿Qué pasa cuando el gasto real rebasa el techo: solo alerta, o además se bloquean las subidas hasta que un día cierre por debajo? | |
+| G1 | ¿El techo [$15,000] se mide contra el gasto real del último día cerrado (lo que hace hoy el collector en cada pasada) o contra la suma de presupuestos activos? ¿O contra ambos con distinta severidad? | **Contestada por Jeshua (2026-09-04): contra ambos, en dos capas.** El techo de $15,000 es real. (1) Gasto real del último día cerrado por encima del techo → alerta `warning` y el estratega no propone ninguna subida ese día. (2) Suma de presupuestos diarios activos por encima de techo × **factor de presupuesto comprometido** (`max_committed_budget_factor`, 1.3 por defecto, editable en Configuración) → alerta `info` "presupuesto comprometido X % del techo" y tampoco se proponen subidas. Ambas capas se calculan en cada pasada del collector (`ceilingCheck`, `agent_runs.stats.ceiling.blocks_scaling`). |
+| G2 | ¿Qué pasa cuando el gasto real rebasa el techo: solo alerta, o además se bloquean las subidas hasta que un día cierre por debajo? | **Contestada:** alerta y bloqueo de subidas mientras la capa siga cerrada (se reevalúa en cada pasada con el último día cerrado). Los recortes y las pausas no se bloquean. |
 | G3 | ¿El techo cambia por temporada o promo? ¿Quién lo cambia y con cuánta anticipación? | |
 
 ## H. Horarios

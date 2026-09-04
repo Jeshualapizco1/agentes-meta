@@ -134,11 +134,11 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     const accToday = toZoned(now, info.timezone_name).date;
     const lastClosed = new Date(`${accToday}T12:00:00Z`); lastClosed.setUTCDate(lastClosed.getUTCDate() - 1); const lastClosedDate = lastClosed.toISOString().slice(0, 10);
     const [{ data: prof }, { data: spendRows }] = await Promise.all([
-      db.from("account_profiles").select("daily_spend_ceiling").eq("account_id", acc.id).maybeSingle(),
+      db.from("account_profiles").select("daily_spend_ceiling,max_committed_budget_factor").eq("account_id", acc.id).maybeSingle(),
       db.from("insights_daily").select("date,spend").eq("account_id", acc.id).eq("level", "campaign").in("date", [lastClosedDate, accToday]),
     ]);
     const sum = (d: string) => { const xs = (spendRows ?? []).filter(r => r.date === d); return xs.length ? xs.reduce((a, r) => a + Number(r.spend ?? 0), 0) : null; };
-    const check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
+    const check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, committedFactor: prof?.max_committed_budget_factor != null ? Number(prof.max_committed_budget_factor) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
       ents: rows.map(r => ({ id: r.id as string, level: r.level as "campaign" | "adset" | "ad", campaign_id: (r.campaign_id as string | null) ?? null, effective_status: (r.effective_status as string | null) ?? null, daily_budget_cents: (r.daily_budget as number | null) ?? null })) });
     ceiling = { ...check, last_closed: lastClosedDate };
     const mxn = (n: number) => `$${Math.round(n).toLocaleString("es-MX")}`;
@@ -146,9 +146,9 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
       const { count } = await db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", kind).eq("account_id", acc.id).is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
       if (!count) await db.from("alerts").insert({ account_id: acc.id, kind, severity, message, payload: check });
     };
-    // el candado del estratega se mide contra el gasto real; el presupuesto activo solo informa cuánto podría gastarse si Meta entregara todo
-    if (check.over_spend) await alertOnce("spend_over_ceiling", "warning", `El gasto real del ${lastClosedDate} (${mxn(check.spend_last_closed!)}) rebasó el techo de ${mxn(check.ceiling!)}.`);
-    else if (check.over_budget) await alertOnce("budget_over_ceiling", "info", `El presupuesto diario activo suma ${mxn(check.budget_active)} en ${check.active_campaigns} campañas (${check.budget_pct}% del techo de ${mxn(check.ceiling!)}); el gasto real del ${lastClosedDate} fue ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Si Meta entregara todo el presupuesto se rebasaría el techo.`);
+    // política en dos capas (docs/06 G1/G2): cualquiera cerrada → el estratega no propone subidas (check.blocks_scaling)
+    if (check.over_spend) await alertOnce("spend_over_ceiling", "warning", `El gasto real del ${lastClosedDate} (${mxn(check.spend_last_closed!)}) rebasó el techo de ${mxn(check.ceiling!)}. Sin propuestas de subir presupuesto hoy.`);
+    if (check.over_committed) await alertOnce("budget_committed", "info", `Presupuesto comprometido ${check.budget_pct}% del techo: ${mxn(check.budget_active)} en ${check.active_campaigns} campañas activas contra ${mxn(check.ceiling!)} × ${check.committed_factor} = ${mxn(check.committed_limit!)}. Gasto real del ${lastClosedDate}: ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Sin propuestas de subir presupuesto mientras siga así.`);
   } catch (e) { log(`⚠ techo ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); ceiling = { error: 1 }; }
 
   // 6. Día sin cambios humanos → se registra explícitamente
