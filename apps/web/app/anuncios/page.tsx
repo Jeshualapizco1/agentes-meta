@@ -17,6 +17,7 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
   const accountId = p.account ?? "1703313583465547";
   const range = resolveRange(p, 7);
   const estado = p.estado ?? "activos", orden = p.orden ?? "gasto";
+  const por = [10, 25, 50].includes(Number(p.por)) ? Number(p.por) : 25;
   const { data: accounts } = await sb.from("accounts").select("id,name").eq("enabled", true).order("name");
   const [{ data: ads }, { data: parents }, { data: rows }, { data: reviews }] = await Promise.all([
     sb.from("entities").select("id,name,effective_status,parent_id,campaign_id,updated_time,thumb:raw->creative->>thumbnail_url").eq("account_id", accountId).eq("level", "ad"),
@@ -40,7 +41,11 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
   list.sort(sorters[orden] ?? sorters.gasto!);
   const unreviewed = list.filter(a => a.unreviewed).length;
   const totalSpend = list.reduce((n, a) => n + a.spend, 0), totalValue = list.reduce((n, a) => n + a.value, 0), totalPurch = list.reduce((n, a) => n + a.purchases, 0);
-  const back = `/anuncios?account=${accountId}&estado=${estado}&orden=${orden}${range.custom ? `&from=${range.from}&to=${range.to}` : `&days=${range.days}`}`;
+  const pages = Math.max(1, Math.ceil(list.length / por));
+  const pagina = Math.min(pages, Math.max(1, Number(p.pagina) || 1));
+  const shown = list.slice((pagina - 1) * por, pagina * por);
+  const qs = (extra: Record<string, string | number>) => { const q = new URLSearchParams({ account: accountId, estado, orden, por: String(por), ...(range.custom ? { from: range.from, to: range.to } : { days: String(range.days) }) }); for (const [k, v] of Object.entries(extra)) q.set(k, String(v)); return `/anuncios?${q}`; };
+  const back = qs({ pagina });
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,6 +56,7 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
           <select name="estado" defaultValue={estado} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="activos">Activos</option><option value="todos">Activos y con gasto en el periodo</option></select>
           <select name="orden" defaultValue={orden} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="gasto">Mayor gasto</option><option value="roas">Mejor ROAS</option><option value="cpa">Menor CPA</option><option value="sinrevisar">Sin revisar primero</option></select>
           <DateRange days={range.days} from={p.from} to={p.to} presets={[7, 14, 30]} label="" />
+          <select name="por" defaultValue={String(por)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{[10, 25, 50].map(n => <option key={n} value={n}>{n} por página</option>)}</select>
           <button className="btn-accent px-3 py-1 text-sm">Ver</button>
         </form>
       </div>
@@ -63,7 +69,7 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
       </p>
       <Card className="!p-0">
         <div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="text-left font-mono text-[11px] uppercase text-muted"><th className="px-4 py-2">Anuncio</th><th className="px-2">Estado</th><th className="px-2 text-right">Gasto</th><th className="px-2 text-right">Compras</th><th className="px-2 text-right">Valor</th><th className="px-2 text-right">ROAS</th><th className="px-2 text-right">CPA</th><th className="px-2 text-right">CTR</th><th className="px-2">Revisión</th><th></th></tr></thead><tbody>
-          {list.map(a => (
+          {shown.map(a => (
             <tr key={a.id} className={`tnum border-t border-line align-middle ${a.active ? "" : "text-muted"}`}>
               <td className="px-4 py-2"><div className="flex items-center gap-3">
                 {a.thumb ? <img src={a.thumb as string} alt="" width={48} height={48} referrerPolicy="no-referrer" className="h-12 w-12 shrink-0 rounded-lg bg-paper object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-paper font-mono text-[11px] text-muted">sin img</span>}
@@ -77,6 +83,14 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
             </tr>))}
           {!list.length && <tr><td colSpan={10} className="px-4 py-6 text-center text-muted">Sin anuncios para este filtro.</td></tr>}
         </tbody></table></div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-2 font-mono text-[11px] text-muted">
+          <span>{list.length ? `${(pagina - 1) * por + 1}–${Math.min(pagina * por, list.length)} de ${list.length}` : "0"}</span>
+          <span className="ml-auto flex items-center gap-2">
+            {pagina > 1 ? <a href={qs({ pagina: pagina - 1 })} className="rounded-lg border border-line px-2 py-1 hover:text-ink">← anterior</a> : <span className="rounded-lg border border-line px-2 py-1 opacity-40">← anterior</span>}
+            <span>página {pagina} de {pages}</span>
+            {pagina < pages ? <a href={qs({ pagina: pagina + 1 })} className="rounded-lg border border-line px-2 py-1 hover:text-ink">siguiente →</a> : <span className="rounded-lg border border-line px-2 py-1 opacity-40">siguiente →</span>}
+          </span>
+        </div>
       </Card>
     </div>
   );
