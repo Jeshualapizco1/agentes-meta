@@ -14,5 +14,5 @@ gh workflow run collector          # corrida de prueba
 gh run list --workflow=collector   # ver estado
 ```
 
-Horario: 00:00, 06:00, 12:00 y 18:00 CDMX. La corrida de 00:00 CDMX es la consolidación diaria que pediste; las otras tres existen para alertas tempranas.
+Horario: 00:17, 06:17, 12:17 y 18:17 CDMX (minuto 17 porque GitHub retrasa o salta los crons en minuto 0; GitHub también desactiva los schedules tras 60 días sin commits). La corrida de 00:00 CDMX es la consolidación diaria que pediste; las otras tres existen para alertas tempranas.
 Cuando cambies el token de Meta (vence 2026-11-02), repite solo `gh secret set META_TOKEN_AROMANTE ...`.

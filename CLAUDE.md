@@ -36,6 +36,7 @@ Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis compl
 - Ideas adoptadas de Testmia (ver benchmark): candados codificados, modos off/semi/auto, ventanas de evaluación 72h/7d/14d, experimentos con criterio de éxito previo, freno de emergencia manual, "cada error vuelve como regla".
 
 ## Producción
+- **Cron de GitHub Actions:** `17 0,6,12,18 * * *` UTC (minuto 17 a propósito: GitHub retrasa o salta los crons en minuto 0). GitHub **desactiva los schedules tras 60 días sin commits** en el repo; si la bitácora deja de actualizarse, revisar `gh workflow list` (debe decir `active`) y hacer un commit. Verificar corridas automáticas con `gh run list --workflow=collector` (columna trigger = `schedule`).
 App: https://bitacora-aromante.netlify.app (Netlify; desplegar desde la RAÍZ con `CI=1 netlify deploy --prod --filter @agentes-meta/web < /dev/null`; el middleware no corre en Netlify, cada página protege con `requireUser()`). Collector: GitHub Actions en https://github.com/Jeshualapizco1/agentes-meta. Detalles en `docs/03-deploy-cron.md` y `docs/04-deploy-web.md`.
 
 ## Cómo correr
