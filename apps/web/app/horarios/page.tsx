@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { shiftHourCell } from "@agentes-meta/core";
 import { Chip } from "@/components/Chip";
+import { DateRange } from "@/components/DateRange";
+import { resolveRange } from "@/lib/range";
 import { Card } from "@/components/Card";
 export const dynamic = "force-dynamic";
 
@@ -16,16 +18,16 @@ function dowOf(date: string) { const d = new Date(date + "T12:00:00Z").getUTCDay
 
 export default async function Horarios({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const p = await searchParams; await requireUser("/horarios"); const sb = db();
-  const accountId = p.account ?? "1703313583465547"; const metric = (p.metric ?? "roas") as "roas" | "spend" | "purchases" | "cpa"; const weeks = Number(p.weeks ?? 4);
+  const accountId = p.account ?? "1703313583465547"; const metric = (p.metric ?? "roas") as "roas" | "spend" | "purchases" | "cpa"; const range = resolveRange(p.weeks ? { days: String(Number(p.weeks) * 7) } : p, 28);
   const [{ data: accounts }, { data: acc }, { data: prof }] = await Promise.all([
     sb.from("accounts").select("id,name").eq("enabled", true).order("name"),
     sb.from("accounts").select("name,timezone_name").eq("id", accountId).single(),
     sb.from("account_profiles").select("target_roas,breakeven_roas,target_cpa").eq("account_id", accountId).maybeSingle(),
   ]);
   const tz = acc?.timezone_name ?? "America/Mexico_City";
-  const since = new Date(Date.now() - weeks * 7 * 86400_000).toISOString().slice(0, 10);
+  const since = range.from, until = range.to;
   const todayCdmx = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City" }).format(new Date());
-  const { data: rows } = await sb.from("insights_hourly").select("date,hour,spend,purchases,purchase_value").eq("account_id", accountId).gte("date", since).limit(20000);
+  const { data: rows } = await sb.from("insights_hourly").select("date,hour,spend,purchases,purchase_value").eq("account_id", accountId).gte("date", since).lte("date", until).limit(20000);
   // Rejilla día de la semana × hora, en CDMX, solo días cerrados
   const grid: Cell[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, empty));
   const closedDays = new Set<string>();
@@ -51,10 +53,10 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
         <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días cerrados · hora CDMX (cuenta en {tz})</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
-        <form method="get" className="ml-auto flex flex-wrap gap-2">
+        <form method="get" className="ml-auto flex flex-wrap items-end gap-2">
           <select name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
           <select name="metric" defaultValue={metric} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="roas">ROAS</option><option value="cpa">CPA</option><option value="spend">Gasto</option><option value="purchases">Compras</option></select>
-          <select name="weeks" defaultValue={String(weeks)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{["2", "4", "8"].map(w => <option key={w} value={w}>{w} semanas</option>)}</select>
+          <DateRange days={range.days} from={p.from} to={p.to} presets={[14, 28, 56]} label="" />
           <button className="btn-accent px-3 py-1 text-sm font-semibold text-white">Ver</button>
         </form>
       </div>
@@ -82,7 +84,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
         </Card>
         <Card>
           <h2 className="mb-2 font-semibold">Bloques con evidencia suficiente (≥ {MIN_PURCHASES * 2} compras)</h2>
-          {flat.length === 0 ? <p className="text-sm text-muted">Aún no hay bloques con suficientes compras. Amplía las semanas.</p> : (
+          {flat.length === 0 ? <p className="text-sm text-muted">Aún no hay bloques con suficientes compras. Amplía el periodo.</p> : (
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="mb-1 font-mono text-[11px] uppercase text-ok">Mejor ROAS</p>{best.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>
               <div><p className="mb-1 font-mono text-[11px] uppercase text-crit">Peor ROAS</p>{worst.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>

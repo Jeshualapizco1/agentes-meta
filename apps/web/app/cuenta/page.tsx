@@ -5,6 +5,8 @@ import { TimeSeries, type Marker, type Point } from "@/components/TimeSeries";
 import { Chip } from "@/components/Chip";
 import { Card } from "@/components/Card";
 import { Kpi } from "@/components/Kpi";
+import { DateRange } from "@/components/DateRange";
+import { resolveRange } from "@/lib/range";
 export const dynamic = "force-dynamic";
 
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
@@ -14,15 +16,15 @@ type Day = { spend: number; purchases: number; value: number; closed: boolean };
 
 export default async function Cuenta({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const p = await searchParams; await requireUser("/cuenta"); const sb = db();
-  const days = Number(p.days ?? 30);
+  const range = resolveRange(p, 30);
   const { data: accounts } = await sb.from("accounts").select("id,name,timezone_name").eq("enabled", true).order("name");
   const accountId = p.account ?? "1703313583465547";
   const acc = (accounts ?? []).find(a => a.id === accountId);
-  const sinceDate = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+  const sinceDate = range.from, untilDate = range.to;
   const { data: prof } = await sb.from("account_profiles").select("*").eq("account_id", accountId).maybeSingle();
   const [{ data: rows }, { data: sessions }] = await Promise.all([
-    sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).order("date"),
-    sb.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,significance").eq("account_id", accountId).eq("significance", "major").eq("actor_kind", "person").gte("started_at", sinceDate).order("started_at"),
+    sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).lte("date", untilDate).order("date"),
+    sb.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,significance").eq("account_id", accountId).eq("significance", "major").eq("actor_kind", "person").gte("started_at", range.sinceIso).lte("started_at", range.untilIso).order("started_at"),
   ]);
   const byDate = new Map<string, Day>();
   for (const r of rows ?? []) { const d = byDate.get(r.date) ?? { spend: 0, purchases: 0, value: 0, closed: r.is_closed_day }; d.spend += Number(r.spend ?? 0); d.purchases += Number(r.purchases ?? 0); d.value += Number(r.purchase_value ?? 0); d.closed = d.closed && r.is_closed_day; byDate.set(r.date, d); }
@@ -44,10 +46,10 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Cuenta · últimos {days} días · días cerrados en zona {acc?.timezone_name}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: números y cambios en la misma línea</h1></div>
-        <form className="ml-auto flex gap-2" method="get">
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Cuenta · {range.label} · zona {acc?.timezone_name}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: números y cambios en la misma línea</h1></div>
+        <form className="ml-auto flex flex-wrap items-end gap-2" method="get">
           <select name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-          <select name="days" defaultValue={String(days)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{["14", "30", "60", "90"].map(d => <option key={d} value={d}>{d} días</option>)}</select>
+          <DateRange days={range.days} from={p.from} to={p.to} presets={[14, 30, 60, 90]} label="" />
           <button className="btn-accent px-3 py-1 text-sm font-semibold text-white">Ver</button>
         </form>
       </div>

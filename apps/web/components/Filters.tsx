@@ -1,4 +1,5 @@
 import { Chip } from "./Chip";
+import { DateRange } from "./DateRange";
 type Account = { id: string; name: string };
 export function Filters({ accounts, actors, params }: { accounts: Account[]; actors: string[]; params: Record<string, string | undefined> }) {
   const f = (k: string, v: string) => { const p = new URLSearchParams(Object.entries(params).filter(([, x]) => x).map(([a, b]) => [a, b!])); if (v) p.set(k, v); else p.delete(k); return `/bitacora?${p}`; };
@@ -19,10 +20,7 @@ export function Filters({ accounts, actors, params }: { accounts: Account[]; act
           <option value="major">Solo mayores</option>
           <option value="all">Todo, incluido sistema</option>
         </select></label>
-      <label className="flex flex-col gap-1 text-xs text-muted">Periodo
-        <select name="days" defaultValue={cur.days} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink">
-          {["7", "14", "30", "90"].map(d => <option key={d} value={d}>Últimos {d} días</option>)}
-        </select></label>
+      <DateRange days={Number(cur.days)} from={params.from} to={params.to} />
       <button className="btn-accent px-3 py-1.5 text-sm font-semibold text-white">Filtrar</button>
       <a href={f("sig", "")} className="ml-auto self-center"><Chip>limpiar</Chip></a>
     </form>
