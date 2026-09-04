@@ -54,11 +54,12 @@ describe("evaluateChange", () => {
     expect(e.delta.control_spend_pct).toBe(0);
     expect(e.caveats).toEqual([expect.stringMatching(/^Presupuesto compartido/)]); expect(e.caveats[0]).toMatch(/no es independiente/);
   });
-  it("control pequeño: la confianza baja a 'low' y se dice; gasto del control movido ≥ 20 % también se dice", () => {
+  it("control pequeño: el resto no cuenta como lectura (causa guardada), queda una sola lectura y la confianza no pasa de media; gasto del control movido ≥ 20 % se dice", () => {
     // B (control) gasta 100 y compra 0.2 al día → 5.6 compras en 14 días < 10; A tiene 5×14 = 70 compras (alta si el control fuera bueno)
     const small: DailyRow[] = rows(4.5, 3).map(r => (r.entity_id === "B" ? { ...r, spend: 100, purchases: 0.2, value: 300 } : r));
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: small, horizon: "7d", today: "2026-08-25" });
-    expect(e.confidence).toBe("low"); expect(e.caveats).toEqual([expect.stringMatching(/^Control pequeño/)]);
+    expect(e.missing_refs).toEqual({ rest: "resto_compras_insuficientes", self: null }); expect(e.agreement).toBe("single"); expect(e.reading).toBe("up");
+    expect(e.confidence).toBe("medium"); expect(e.caveats).toEqual([]);
     const shifted: DailyRow[] = rows(4.5, 3).map(r => (r.entity_id === "B" && r.date > "2026-08-10" ? { ...r, spend: 1000, value: 3000 } : r));
     const f = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: shifted, horizon: "7d", today: "2026-08-25" });
     expect(f.delta.control_spend_pct).toBe(-50); expect(f.caveats).toEqual([expect.stringMatching(/se movió -50%/)]);
@@ -67,6 +68,19 @@ describe("evaluateChange", () => {
   it("sin campañas identificadas se evalúa toda la cuenta sin control", () => {
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: [], rows: rows(4.5, 4.5), horizon: "7d", today: "2026-08-25" });
     expect(e.control).toBeNull(); expect(e.verdict).toMatch(/sin control/); expect(e.agreement).toBe("single"); expect(e.reading).toBe("up");
+    expect(e.missing_refs).toEqual({ rest: "sin_campana_identificada", self: null });
+  });
+  it("causas de referencia faltante: campaña nueva, pausada antes, pendiente y sin gasto después", () => {
+    const base = rows(4.5, 3);
+    // A solo tiene datos desde el 08-08 (menos de 7 días antes del cambio del 08-10)
+    const nueva = base.filter(r => r.entity_id !== "A" || r.date >= "2026-08-08");
+    expect(evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: nueva, horizon: "7d", today: "2026-08-25" }).missing_refs.self).toBe("menos_de_7_dias_previos");
+    // A existía pero no gastó en los 7 días previos
+    const pausada = base.map(r => (r.entity_id === "A" && r.date >= "2026-08-03" && r.date <= "2026-08-09" ? { ...r, spend: 0, purchases: 0, value: 0 } : r));
+    expect(evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: pausada, horizon: "7d", today: "2026-08-25" }).missing_refs.self).toBe("sin_gasto_previo");
+    expect(evaluateChange({ changeDate: "2026-08-24", campaignIds: ["A"], rows: base, horizon: "72h", today: "2026-08-25" }).missing_refs).toEqual({ rest: "pendiente", self: "pendiente" });
+    const apagada = base.map(r => (r.entity_id === "A" && r.date > "2026-08-10" ? { ...r, spend: 0, purchases: 0, value: 0 } : r));
+    expect(evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: apagada, horizon: "7d", today: "2026-08-25" }).missing_refs).toEqual({ rest: "sin_gasto_despues", self: "sin_gasto_despues" });
   });
 });
 

@@ -118,8 +118,43 @@ $4,600 → $5,200, +13 %, en «CBO | PROMO ESCALONADA»; ventana de 72 h, madura
   tocado frente a −12 % en el resto, +14 pts), pero frente a su propia semana previa un deterioro (−30 %). Las dos lecturas
   se contradicen; no se concluye.", con la salvedad "Presupuesto compartido … (gasto del control −4 %)".
 
-Con una sola lectura este cambio habría salido como "mejora"; con las dos, queda en revisión. En la misma corrida: 48
-ventanas `agree`, 22 `partial`, 2 `mixed`, 48 `single` (sesiones sin campaña identificada) y 24 `none`.
+Con una sola lectura este cambio habría salido como "mejora"; con las dos, queda en revisión.
+
+### 4c. Cuando falta una referencia: la causa se guarda
+
+Cada ventana guarda en `missing_refs` por qué falta cada lectura (`rest` = resto de la cuenta, `self` = semana previa
+propia; `null` = la lectura existe). Una referencia con menos de `MIN_REF_PURCHASES = 10` compras no cuenta como lectura.
+Con una sola lectura (`single`) la confianza no pasa de media: solo dos lecturas que coinciden sostienen confianza alta.
+
+| Código | Qué significa | ¿Se resuelve sola? |
+|---|---|---|
+| `pendiente` | todavía no hay días cerrados después del cambio | **sí**, con el tiempo |
+| `sin_gasto_despues` | lo tocado no gastó después del cambio (pausado o sin entrega) | no: estructural |
+| `sin_campana_identificada` | la sesión no tocó una campaña identificable (cambio a nivel cuenta o entidad no mapeada) | no: estructural (mejorar el mapeo de entidades) |
+| `resto_sin_gasto` | el resto de la cuenta no gastó en la ventana | no: estructural |
+| `resto_compras_insuficientes` | el resto tuvo menos de 10 compras en la ventana | no: **volumen** |
+| `menos_de_7_dias_previos` | la campaña no existía 7 días antes del cambio (campaña nueva) | no: estructural |
+| `sin_gasto_previo` | la campaña existía pero no entregó los 7 días previos (pausada) | no: estructural |
+| `propia_compras_insuficientes` | la campaña tuvo menos de 10 compras en sus 7 días previos | no: **volumen** |
+
+**Distribución real (Aromante 1, corrida del 2026-09-04, 144 ventanas de 48 sesiones):**
+
+| Situación | Ventanas |
+|---|---|
+| Dos lecturas: coinciden (`agree`) | 45 (18 maduras, 27 preliminares) |
+| Dos lecturas: una plana (`partial`) | 19 |
+| Dos lecturas: se contradicen (`mixed`) | 2 |
+| Una lectura: falta el resto por `sin_campana_identificada` | 42 |
+| Una lectura: falta la propia por `menos_de_7_dias_previos` | 6 |
+| Ninguna: `pendiente` | 9 |
+| Ninguna: `menos_de_7_dias_previos` (9) o combinada con `sin_campana_identificada` (6) | 15 |
+| Ninguna: `sin_gasto_despues` | 6 |
+
+Lectura: de las 78 ventanas sin doble lectura, **9 se resuelven solas** (pendientes), **0 son de volumen** (ninguna
+referencia se perdió por pocas compras: la cuenta tiene compras de sobra) y **69 son estructurales**: 48 por sesiones
+que no tocaron una campaña identificable (la mejora que más ventanas recupera es mapear mejor esas sesiones a su campaña),
+21 por campañas nuevas sin semana previa y 6 por campañas que dejaron de entregar después del cambio. Se muestra en
+`/analisis` bajo cada ventana como "sin lectura frente a …: causa".
 
 ## 5. Compras suficientes y confianza
 

@@ -4,12 +4,13 @@ import { fmtDay, fmtTime } from "@/lib/format";
 import { Card } from "@/components/Card";
 import { Chip } from "@/components/Chip";
 import { forceWeekly } from "./actions";
+import { MISSING_REF_LABEL, type MissingRefCause } from "@agentes-meta/core";
 export const dynamic = "force-dynamic";
 
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
 const H_LABEL: Record<string, string> = { "72h": "72 h", "7d": "7 días", "14d": "14 días" };
 const CONF: Record<string, string> = { high: "confianza alta", medium: "confianza media", low: "confianza baja", insufficient: "sin evidencia" };
-type Win = { session_id: string; horizon: string; status: string; confidence: string | null; verdict: string | null; caveats: string[] | null; agreement: string | null; reading: string | null; delta: { roas_pct: number | null; control_roas_pct: number | null; cpa_pct: number | null } | null };
+type Win = { session_id: string; horizon: string; status: string; confidence: string | null; verdict: string | null; caveats: string[] | null; agreement: string | null; reading: string | null; missing_refs: { rest: MissingRefCause | null; self: MissingRefCause | null } | null; delta: { roas_pct: number | null; control_roas_pct: number | null; cpa_pct: number | null } | null };
 type Ev = { period: { start: string; end: string }; totals: { week: { spend: number; purchases: number; roas: number | null; cpa: number | null }; previous: { spend: number; purchases: number; roas: number | null; cpa: number | null }; roas_pct: number | null; cpa_pct: number | null; spend_pct: number | null }; sessions: { id: string; summary: string; actor_name: string; evaluations: { horizon: string; status: string; confidence: string; verdict: string }[] }[]; campaigns: { best: { name: string; roas: number; spend: number; purchases: number }[]; worst: { name: string; roas: number; spend: number; purchases: number }[] } };
 
 function tone(w: Win): "ok" | "crit" | "amber" | "neutral" {
@@ -29,7 +30,7 @@ export default async function Analisis({ searchParams }: { searchParams: Promise
     sb.from("agent_runs").select("started_at,status,stats").eq("agent", "analyst").eq("account_id", accountId).order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const ids = (sessions ?? []).map(s => s.id);
-  const { data: wins } = ids.length ? await sb.from("evaluation_windows").select("session_id,horizon,status,confidence,verdict,caveats,agreement,reading,delta").in("session_id", ids) : { data: [] as Win[] };
+  const { data: wins } = ids.length ? await sb.from("evaluation_windows").select("session_id,horizon,status,confidence,verdict,caveats,agreement,reading,missing_refs,delta").in("session_id", ids) : { data: [] as Win[] };
   const byS = new Map<string, Win[]>(); for (const w of (wins ?? []) as Win[]) byS.set(w.session_id, [...(byS.get(w.session_id) ?? []), w]);
   const acc = (accounts ?? []).find(a => a.id === accountId);
   const latest = reports?.[0];
@@ -67,7 +68,7 @@ export default async function Analisis({ searchParams }: { searchParams: Promise
         {sessions?.length ? <ul className="flex flex-col divide-y divide-line">{sessions.map(s => { const ws = (byS.get(s.id) ?? []).sort((a, b) => ["72h", "7d", "14d"].indexOf(a.horizon) - ["72h", "7d", "14d"].indexOf(b.horizon)); return (
           <li key={s.id} className="flex flex-col gap-2 py-3">
             <p className="text-sm"><span className="font-mono text-[11px] text-muted">{fmtDay(s.started_at).split(",")[0]} · {fmtTime(s.started_at)}</span> <b>{s.actor_name}</b>{s.resets_learning && <span className="text-amber"> ↻</span>}: {s.summary} <a href={`/sesion/${s.id}`} className="text-meta">→</a></p>
-            {ws.length ? <div className="grid gap-2 sm:grid-cols-3">{ws.map(w => <div key={w.horizon} className="rounded-xl border border-line bg-paper px-3 py-2 text-[12px]"><p className="mb-1 flex items-center gap-2"><Chip tone={tone(w)}>{H_LABEL[w.horizon]}</Chip><span className="font-mono text-[11px] text-muted">{w.status === "mature" ? "maduro" : w.status === "preliminary" ? "preliminar" : "pendiente"} · {CONF[w.confidence ?? "insufficient"]}</span></p><p className="leading-snug">{w.verdict}</p>{w.caveats?.map(c => <p key={c} className="mt-1 leading-snug text-amber">⚠ {c}</p>)}</div>)}</div> : <p className="font-mono text-[11px] text-muted">sin ventanas calculadas todavía (corre el analista)</p>}
+            {ws.length ? <div className="grid gap-2 sm:grid-cols-3">{ws.map(w => <div key={w.horizon} className="rounded-xl border border-line bg-paper px-3 py-2 text-[12px]"><p className="mb-1 flex items-center gap-2"><Chip tone={tone(w)}>{H_LABEL[w.horizon]}</Chip><span className="font-mono text-[11px] text-muted">{w.status === "mature" ? "maduro" : w.status === "preliminary" ? "preliminar" : "pendiente"} · {CONF[w.confidence ?? "insufficient"]}</span></p><p className="leading-snug">{w.verdict}</p>{w.caveats?.map(c => <p key={c} className="mt-1 leading-snug text-amber">⚠ {c}</p>)}{w.missing_refs?.rest && w.missing_refs.rest !== "pendiente" && <p className="mt-1 font-mono text-[11px] leading-snug text-muted">sin lectura frente al resto: {MISSING_REF_LABEL[w.missing_refs.rest]}</p>}{w.missing_refs?.self && w.missing_refs.self !== "pendiente" && w.missing_refs.self !== w.missing_refs.rest && <p className="mt-1 font-mono text-[11px] leading-snug text-muted">sin lectura frente a su semana previa: {MISSING_REF_LABEL[w.missing_refs.self]}</p>}</div>)}</div> : <p className="font-mono text-[11px] text-muted">sin ventanas calculadas todavía (corre el analista)</p>}
           </li>); })}</ul> : <p className="text-sm text-muted">Sin sesiones mayores de personas en 30 días.</p>}
       </Card>
     </div>

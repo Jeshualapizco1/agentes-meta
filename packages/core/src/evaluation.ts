@@ -18,6 +18,20 @@ export type DailyRow = { entity_id: string; date: string; spend: number; purchas
 export interface WindowMetrics { days: number; spend: number; purchases: number; value: number; roas: number | null; cpa: number | null }
 export type Confidence = "high" | "medium" | "low" | "insufficient";
 export type Reading = "up" | "flat" | "down";
+/** Por qué falta una de las dos referencias (se guarda por ventana para saber cuántas se resuelven solas y cuántas son de volumen). */
+export type MissingRefCause = "pendiente" | "sin_gasto_despues" | "sin_campana_identificada" | "resto_sin_gasto" | "resto_compras_insuficientes" | "menos_de_7_dias_previos" | "sin_gasto_previo" | "propia_compras_insuficientes";
+export const MISSING_REF_LABEL: Record<MissingRefCause, string> = {
+  pendiente: "todavía no hay días cerrados después del cambio (se resuelve sola)",
+  sin_gasto_despues: "lo tocado no gastó después del cambio (pausado o sin entrega)",
+  sin_campana_identificada: "la sesión no tocó una campaña identificable (cambio a nivel cuenta o entidad no mapeada)",
+  resto_sin_gasto: "el resto de la cuenta no gastó en la ventana",
+  resto_compras_insuficientes: "el resto de la cuenta tuvo menos de 10 compras en la ventana (volumen)",
+  menos_de_7_dias_previos: "la campaña tenía menos de 7 días cerrados antes del cambio (campaña nueva)",
+  sin_gasto_previo: "la campaña no gastó en los 7 días previos (pausada en el periodo)",
+  propia_compras_insuficientes: "la campaña tuvo menos de 10 compras en sus 7 días previos (volumen)",
+};
+/** Causas que desaparecen con el tiempo; las demás son estructurales o de volumen. */
+export const MISSING_REF_RESOLVES_ALONE: MissingRefCause[] = ["pendiente"];
 /** agree: las dos lecturas dicen lo mismo · partial: una clara y la otra plana · mixed: se contradicen · single: solo hay una · none: ninguna */
 export type Agreement = "agree" | "partial" | "mixed" | "single" | "none";
 export interface Evaluation {
@@ -28,13 +42,16 @@ export interface Evaluation {
   delta: { roas_pct: number | null; cpa_pct: number | null; spend_pct: number | null; control_roas_pct: number | null; control_cpa_pct: number | null; control_spend_pct: number | null; diff_roas_pts: number | null; diff_cpa_pts: number | null; self_roas_pct: number | null; self_cpa_pct: number | null };
   /** Lectura combinada (solo cuando las lecturas coinciden o hay una sola). */
   reading: Reading | null; agreement: Agreement;
+  /** Causa por la que falta cada referencia (null = la referencia existe). */
+  missing_refs: { rest: MissingRefCause | null; self: MissingRefCause | null };
   confidence: Confidence; verdict: string; caveats: string[];
 }
 export const BASELINE_DAYS = 7;           // segunda referencia: la campaña tocada contra sí misma en los 7 días cerrados previos
 /** Umbrales de la evaluación (documentados en docs/05-analista.md). */
 export const THRESHOLD_PTS = 10;           // puntos porcentuales de variación de ROAS frente al control para hablar de mejora o deterioro
 export const MIN_PURCHASES = { low: 10, medium: 30, high: 60 };
-export const MIN_CONTROL_PURCHASES = 10;   // con menos compras en el control (antes+después) la confianza se queda en baja
+export const MIN_REF_PURCHASES = 10;       // una referencia (resto de la cuenta o semana previa propia) con menos compras no cuenta como lectura
+export const MIN_CONTROL_PURCHASES = MIN_REF_PURCHASES;
 export const CONTROL_SPEND_SHIFT_PCT = 20; // si el gasto del control se movió más que esto, el control no fue estable
 
 const addDays = (date: string, n: number) => { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -77,29 +94,34 @@ export function evaluateChange(o: { changeDate: string; campaignIds: string[]; r
   const purchases = treatment.before.purchases + treatment.after.purchases;
   let confidence: Confidence = status === "pending" || treatment.after.spend === 0 || treatment.before.spend === 0 ? "insufficient" : purchases >= MIN_PURCHASES.high ? "high" : purchases >= MIN_PURCHASES.medium ? "medium" : purchases >= MIN_PURCHASES.low ? "low" : "insufficient";
   if (confidence === "high" && status === "preliminary") confidence = "medium";
+  // por qué faltaría cada referencia
+  const controlPurchases = hasControl ? control!.before.purchases + control!.after.purchases : 0;
+  const firstDate = (ids ? o.rows.filter(r => ids.has(r.entity_id)) : o.rows).reduce<string | null>((m, r) => (m == null || r.date < m ? r.date : m), null);
+  const common: MissingRefCause | null = status === "pending" ? "pendiente" : treatment.after.spend === 0 ? "sin_gasto_despues" : null;
+  const restCause: MissingRefCause | null = common ?? (!ids ? "sin_campana_identificada" : !hasControl ? "resto_sin_gasto" : controlPurchases < MIN_REF_PURCHASES ? "resto_compras_insuficientes" : null);
+  const selfCause: MissingRefCause | null = common ?? (
+    firstDate == null || firstDate > addDays(o.changeDate, -BASELINE_DAYS) ? "menos_de_7_dias_previos"      // no existía 7 días antes
+    : baseline.spend === 0 || baseline.days < BASELINE_DAYS ? "sin_gasto_previo"                            // existía pero no entregó los 7 días
+    : baseline.roas == null || baseline.purchases < MIN_REF_PURCHASES ? "propia_compras_insuficientes"      // entregó pero con pocas compras
+    : null);
   // las dos lecturas y su acuerdo
   const cat = (v: number | null): Reading | null => (v == null ? null : v >= THRESHOLD_PTS ? "up" : v <= -THRESHOLD_PTS ? "down" : "flat");
-  const vsRest = hasControl ? cat(diff_roas_pts) : null, vsSelf = cat(self_roas_pct);
+  const vsRest = restCause ? null : cat(diff_roas_pts), vsSelf = selfCause ? null : cat(self_roas_pct);
   const agreement: Agreement = vsRest && vsSelf ? (vsRest === vsSelf ? "agree" : vsRest === "flat" || vsSelf === "flat" ? "partial" : "mixed") : vsRest || vsSelf ? "single" : "none";
   const reading: Reading | null = agreement === "agree" ? vsRest : agreement === "single" ? (vsRest ?? vsSelf) : null;
   if (confidence !== "insufficient") {
     if (agreement === "mixed" && confidence !== "low") confidence = "low";
-    else if (agreement === "partial" && confidence === "high") confidence = "medium";
+    else if ((agreement === "partial" || agreement === "single") && confidence === "high") confidence = "medium";   // solo dos lecturas que coinciden sostienen confianza alta
   }
   // salvedades: el control no es independiente ni estable en todos los casos
   const caveats: string[] = [];
   const s = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
   if (hasControl && status !== "pending") {
-    const controlPurchases = control!.before.purchases + control!.after.purchases;
-    if (controlPurchases < MIN_CONTROL_PURCHASES) {
-      caveats.push(`Control pequeño: el resto de la cuenta tuvo ${controlPurchases} compras en la ventana (mínimo ${MIN_CONTROL_PURCHASES}); la comparación vale poco.`);
-      if (confidence === "high" || confidence === "medium") confidence = "low";
-    }
     if (o.kind === "budget") caveats.push(`Presupuesto compartido: al mover el presupuesto de una campaña cambia el gasto del resto de la cuenta${control_spend_pct != null ? ` (gasto del control ${s(control_spend_pct)})` : ""}, así que el control no es independiente.`);
     else if (control_spend_pct != null && Math.abs(control_spend_pct) >= CONTROL_SPEND_SHIFT_PCT) caveats.push(`El gasto del resto de la cuenta se movió ${s(control_spend_pct)} en la ventana: el control no fue estable.`);
   }
   const verdict = buildVerdict({ status, confidence, roas_pct, cpa_pct, control_roas_pct, diff_roas_pts, self_roas_pct, vsRest, vsSelf, agreement, N, closedAfterDays });
-  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, treatment, control, baseline, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts), self_roas_pct: r1(self_roas_pct), self_cpa_pct: r1(self_cpa_pct) }, reading, agreement, confidence, verdict, caveats };
+  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, treatment, control, baseline, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts), self_roas_pct: r1(self_roas_pct), self_cpa_pct: r1(self_cpa_pct) }, reading, agreement, missing_refs: { rest: restCause, self: selfCause }, confidence, verdict, caveats };
 }
 
 function buildVerdict(x: { status: Evaluation["status"]; confidence: Confidence; roas_pct: number | null; cpa_pct: number | null; control_roas_pct: number | null; diff_roas_pts: number | null; self_roas_pct: number | null; vsRest: Reading | null; vsSelf: Reading | null; agreement: Agreement; N: number; closedAfterDays: number }): string {
@@ -132,7 +154,7 @@ function buildVerdict(x: { status: Evaluation["status"]; confidence: Confidence;
 }
 
 /** Paquete de evidencia semanal (determinista): totales de la semana vs. la previa, sesiones con veredicto, mejores y peores campañas. */
-export interface WeeklySession { ref?: string; id: string; started_at: string; actor_name: string; summary: string; resets_learning: boolean; kind: string; evaluations: Pick<Evaluation, "horizon" | "status" | "confidence" | "verdict" | "delta" | "caveats" | "agreement" | "reading">[] }
+export interface WeeklySession { ref?: string; id: string; started_at: string; actor_name: string; summary: string; resets_learning: boolean; kind: string; evaluations: Pick<Evaluation, "horizon" | "status" | "confidence" | "verdict" | "delta" | "caveats" | "agreement" | "reading" | "missing_refs">[] }
 /** Fila de campaña del ranking semanal; `ref` (C1, C2…) es la referencia que la narrativa debe citar. */
 export interface WeeklyCampaign { ref: string; id: string; name: string; spend: number; purchases: number; roas: number }
 export interface WeeklyEvidence {
