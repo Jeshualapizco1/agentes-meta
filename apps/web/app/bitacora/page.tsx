@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { fmtDay, dayKey } from "@/lib/format";
 import { Filters } from "@/components/Filters";
 import { SessionRow, type Session } from "@/components/SessionRow";
+import { Card } from "@/components/Card";
 export const dynamic = "force-dynamic";
 
 export default async function Bitacora({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -35,21 +36,21 @@ export default async function Bitacora({ searchParams }: { searchParams: Promise
     <div className="flex flex-col gap-6">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-wider text-muted">Bitácora · últimos {days} días</p>
-        <h1 className="font-serif text-3xl font-medium">Qué cambió en Meta, quién y cuándo</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Qué cambió en Meta, quién y cuándo</h1>
       </div>
       <Filters accounts={accounts ?? []} actors={actors} params={params} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[["Sesiones", sessions?.length ?? 0], ["Decisiones mayores", majors], ["Reinicios de aprendizaje", resets], ["Responsables", new Set((sessions ?? []).map(s => s.actor_name)).size]].map(([l, v]) => (
-          <div key={String(l)} className="rounded-md border border-line bg-surface px-4 py-3"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{l}</p><p className="tnum font-serif text-2xl">{v}</p></div>
+          <Card as="div" key={String(l)} className="!p-4"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{l}</p><p className="tnum text-2xl font-bold">{v}</p></Card>
         ))}
       </div>
       {dayKeys.map(k => {
         const list = byDay.get(k) ?? [];
         return (
-          <section key={k} className="rounded-md border border-line bg-surface">
-            <h2 className="flex items-baseline gap-3 border-b border-line px-4 py-2 font-serif text-lg">{fmtDay(k + "T12:00:00-06:00")}<span className="font-mono text-[11px] text-muted">{list.length ? `${list.length} sesión(es)` : "sin cambios registrados"}</span></h2>
+          <Card key={k} className="!p-0">
+            <h2 className="flex items-baseline gap-3 border-b border-line px-4 py-2 text-lg font-semibold">{fmtDay(k + "T12:00:00-06:00")}<span className="font-mono text-[11px] text-muted">{list.length ? `${list.length} sesión(es)` : "sin cambios registrados"}</span></h2>
             {list.length ? <ul className="px-4">{list.map(s => <SessionRow key={s.id} s={s} accountName={!params.account ? accName.get(s.account_id) : undefined} />)}</ul> : null}
-          </section>
+          </Card>
         );
       })}
     </div>

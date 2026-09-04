@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { shiftHourCell } from "@agentes-meta/core";
 import { Chip } from "@/components/Chip";
+import { Card } from "@/components/Card";
 export const dynamic = "force-dynamic";
 
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -9,8 +10,8 @@ const BLOCKS: [string, number, number][] = [["Madrugada 0–6", 0, 6], ["Mañana
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
 type Cell = { spend: number; purchases: number; value: number; days: Set<string> };
 const empty = (): Cell => ({ spend: 0, purchases: 0, value: 0, days: new Set() });
-/** Rampa secuencial de un solo tono (verde), claro → oscuro; magnitud, no identidad. */
-function ramp(t: number) { const l = 96 - t * 58; const c = 0.02 + t * 0.09; return `oklch(${l}% ${c} 160)`; }
+/** Rampa secuencial de un solo tono: del color de la tarjeta (0) al verde --color-ok (1); magnitud, no identidad. */
+function ramp(t: number) { return `color-mix(in oklab, var(--color-surface-solid), var(--color-ok) ${Math.round(Math.max(0, Math.min(1, t)) * 100)}%)`; }
 function dowOf(date: string) { const d = new Date(date + "T12:00:00Z").getUTCDay(); return (d + 6) % 7; }
 
 export default async function Horarios({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -49,51 +50,51 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días cerrados · hora CDMX (cuenta en {tz})</p><h1 className="font-serif text-3xl font-medium">Cuándo rinde la cuenta, por día y hora</h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días cerrados · hora CDMX (cuenta en {tz})</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
         <form method="get" className="ml-auto flex flex-wrap gap-2">
-          <select name="account" defaultValue={accountId} className="rounded border border-line bg-surface px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-          <select name="metric" defaultValue={metric} className="rounded border border-line bg-surface px-2 py-1 text-sm"><option value="roas">ROAS</option><option value="cpa">CPA</option><option value="spend">Gasto</option><option value="purchases">Compras</option></select>
-          <select name="weeks" defaultValue={String(weeks)} className="rounded border border-line bg-surface px-2 py-1 text-sm">{["2", "4", "8"].map(w => <option key={w} value={w}>{w} semanas</option>)}</select>
-          <button className="rounded bg-accent px-3 py-1 text-sm font-semibold text-white">Ver</button>
+          <select name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+          <select name="metric" defaultValue={metric} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="roas">ROAS</option><option value="cpa">CPA</option><option value="spend">Gasto</option><option value="purchases">Compras</option></select>
+          <select name="weeks" defaultValue={String(weeks)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{["2", "4", "8"].map(w => <option key={w} value={w}>{w} semanas</option>)}</select>
+          <button className="btn-accent px-3 py-1 text-sm font-semibold text-white">Ver</button>
         </form>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[["Gasto", mxn0(totalSpend)], ["Compras", totalPurch.toFixed(0)], ["ROAS promedio", avgRoas.toFixed(2)], ["Celdas con ≥ " + MIN_PURCHASES + " compras", `${all.filter(c => c.purchases >= MIN_PURCHASES).length} de 168`]].map(([l, v]) => <div key={l} className="rounded-md border border-line bg-surface px-4 py-3"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{l}</p><p className="tnum font-serif text-2xl">{v}</p></div>)}
+        {[["Gasto", mxn0(totalSpend)], ["Compras", totalPurch.toFixed(0)], ["ROAS promedio", avgRoas.toFixed(2)], ["Celdas con ≥ " + MIN_PURCHASES + " compras", `${all.filter(c => c.purchases >= MIN_PURCHASES).length} de 168`]].map(([l, v]) => <Card as="div" key={l} className="!p-4"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{l}</p><p className="tnum text-2xl font-bold">{v}</p></Card>)}
       </div>
       <p className="max-w-3xl text-sm text-muted">Las compras por hora son pocas: una celda con menos de {MIN_PURCHASES} compras se muestra en gris y no cuenta para conclusiones. Meta atribuye la compra a la hora de la impresión. Recordatorio: la programación por horas nativa de Meta solo funciona con presupuesto total; con presupuesto diario esto es una recomendación para el media buyer. {prof?.target_roas && <Chip tone="neutral">ROAS objetivo {Number(prof.target_roas).toFixed(1)}</Chip>}</p>
 
-      <figure className="rounded-md border border-line bg-surface p-4">
+      <Card as="figure">
         <figcaption className="mb-2 flex items-center gap-3 text-sm"><b>{{ roas: "ROAS", cpa: "CPA", spend: "Gasto", purchases: "Compras" }[metric]} por día de la semana y hora</b><span className="ml-auto flex items-center gap-1 font-mono text-[11px] text-muted">{metric === "cpa" ? "caro" : "bajo"}<span className="inline-block h-3 w-24 rounded" style={{ background: `linear-gradient(90deg, ${ramp(0)}, ${ramp(1)})` }} />{metric === "cpa" ? "barato" : "alto"}</span></figcaption>
         <div className="overflow-x-auto"><table className="tnum w-full border-separate text-[11px]" style={{ borderSpacing: 2 }}>
           <thead><tr><th className="w-10"></th>{Array.from({ length: 24 }, (_, h) => <th key={h} className="font-mono font-normal text-muted">{h}</th>)}</tr></thead>
-          <tbody>{grid.map((row, di) => <tr key={di}><th className="text-left font-mono font-normal text-muted">{DOW[di]}</th>{row.map((c, h) => { const ok = c.spend > 0 && (metric === "spend" || metric === "purchases" || c.purchases >= MIN_PURCHASES); const v = val(c); return <td key={h} title={`${DOW[di]} ${h}:00 · gasto ${mxn0(c.spend)} · ${c.purchases.toFixed(0)} compras · ROAS ${c.spend ? (c.value / c.spend).toFixed(2) : "—"} · ${c.days.size} días`} className="h-7 rounded text-center" style={{ background: ok ? ramp(t(v)) : "var(--color-paper)", color: ok && t(v) > 0.55 ? "#fff" : "var(--color-muted)" }}>{ok ? (metric === "roas" ? v.toFixed(1) : metric === "purchases" ? v.toFixed(0) : Math.round(v / (metric === "spend" ? 100 : 1)) || "") : ""}</td>; })}</tr>)}</tbody>
+          <tbody>{grid.map((row, di) => <tr key={di}><th className="text-left font-mono font-normal text-muted">{DOW[di]}</th>{row.map((c, h) => { const ok = c.spend > 0 && (metric === "spend" || metric === "purchases" || c.purchases >= MIN_PURCHASES); const v = val(c); return <td key={h} title={`${DOW[di]} ${h}:00 · gasto ${mxn0(c.spend)} · ${c.purchases.toFixed(0)} compras · ROAS ${c.spend ? (c.value / c.spend).toFixed(2) : "—"} · ${c.days.size} días`} className="h-7 rounded text-center" style={{ background: ok ? ramp(t(v)) : "var(--color-paper)", color: ok && t(v) > 0.55 ? "#0b1220" : "var(--color-muted)" }}>{ok ? (metric === "roas" ? v.toFixed(1) : metric === "purchases" ? v.toFixed(0) : Math.round(v / (metric === "spend" ? 100 : 1)) || "") : ""}</td>; })}</tr>)}</tbody>
         </table></div>
         {metric === "spend" && <p className="mt-1 font-mono text-[11px] text-muted">cifras de gasto en cientos de MXN</p>}
-      </figure>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-md border border-line bg-surface p-4">
+        <Card>
           <h2 className="mb-2 font-semibold">Por hora del día (todas las semanas)</h2>
           <svg viewBox="0 0 720 150" className="w-full" role="img" aria-label="Gasto y ROAS por hora">
             {hourTotals.map(({ h, spend, roas, purchases }) => { const maxS = Math.max(...hourTotals.map(x => x.spend), 1); const bh = (spend / maxS) * 100; const good = purchases >= MIN_PURCHASES * 2; return <g key={h}><rect x={20 + h * 29} y={120 - bh} width={22} height={bh} rx="3" fill={good ? ramp(Math.min(1, roas / Math.max(avgRoas * 2, 0.01))) : "var(--color-line)"} /><text x={31 + h * 29} y={136} textAnchor="middle" fontSize="10" fill="var(--color-muted)" fontFamily="var(--font-mono)">{h}</text>{good && <text x={31 + h * 29} y={114 - bh} textAnchor="middle" fontSize="9" fill="var(--color-muted)" fontFamily="var(--font-mono)">{roas.toFixed(1)}</text>}</g>; })}
           </svg>
           <p className="font-mono text-[11px] text-muted">altura = gasto · color = ROAS · número = ROAS de la hora · gris = pocas compras para juzgar</p>
-        </section>
-        <section className="rounded-md border border-line bg-surface p-4">
+        </Card>
+        <Card>
           <h2 className="mb-2 font-semibold">Bloques con evidencia suficiente (≥ {MIN_PURCHASES * 2} compras)</h2>
           {flat.length === 0 ? <p className="text-sm text-muted">Aún no hay bloques con suficientes compras. Amplía las semanas.</p> : (
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="mb-1 font-mono text-[11px] uppercase text-accent">Mejor ROAS</p>{best.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>
+              <div><p className="mb-1 font-mono text-[11px] uppercase text-ok">Mejor ROAS</p>{best.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>
               <div><p className="mb-1 font-mono text-[11px] uppercase text-crit">Peor ROAS</p>{worst.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>
             </div>
           )}
           <p className="mt-2 text-xs text-muted">Un bloque es "oportunidad" solo si supera al promedio de la cuenta ({avgRoas.toFixed(2)}) con margen y evidencia. La Fase 4 convierte esto en propuestas con umbrales configurables.</p>
-        </section>
+        </Card>
       </div>
-      <details className="rounded-md border border-line bg-surface"><summary className="px-4 py-2 text-sm font-semibold">Tabla día × bloque</summary>
+      <Card as="details" className="!p-0"><summary className="px-4 py-2 text-sm font-semibold">Tabla día × bloque</summary>
         <div className="overflow-x-auto px-4 pb-3"><table className="tnum w-full text-[13px]"><thead><tr className="text-left font-mono text-[11px] uppercase text-muted"><th>Día</th>{BLOCKS.map(b => <th key={b[0]}>{b[0]}</th>)}</tr></thead><tbody>
           {blocks.map((r, i) => <tr key={i} className="border-t border-line"><td className="py-1 font-semibold">{DOW[i]}</td>{r.map(b => <td key={b.label}>{b.purchases >= MIN_PURCHASES * 2 ? `ROAS ${b.roas.toFixed(2)} · ${mxn0(b.spend)} · ${b.purchases.toFixed(0)}c` : <span className="text-muted">{mxn0(b.spend)} · {b.purchases.toFixed(0)}c</span>}</td>)}</tr>)}
-        </tbody></table></div></details>
+        </tbody></table></div></Card>
     </div>
   );
 }

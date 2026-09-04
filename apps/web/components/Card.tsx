@@ -4,7 +4,7 @@ const SPAN: Record<number, string> = { 3: "lg:col-span-3", 4: "lg:col-span-4", 6
 
 /** Tarjeta Bento. `hero` añade glow y sombra exterior (decorativo). `span`/`rows` posicionan en la rejilla de 12 columnas (solo desde lg). */
 export function Card({ hero, span, rows, as = "section", className = "", eyebrow, title, action, children }: {
-  hero?: boolean; span?: 3 | 4 | 6 | 8 | 12; rows?: 1 | 2; as?: "section" | "div" | "figure" | "article" | "li"; className?: string;
+  hero?: boolean; span?: 3 | 4 | 6 | 8 | 12; rows?: 1 | 2; as?: "section" | "div" | "figure" | "article" | "li" | "details"; className?: string;
   eyebrow?: ReactNode; title?: ReactNode; action?: ReactNode; children: ReactNode;
 }) {
   const cls = ["card", hero ? "card-hero" : "", span ? SPAN[span] : "", rows === 2 ? "lg:row-span-2" : "", "p-5", className].filter(Boolean).join(" ");

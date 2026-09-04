@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Card } from "./Card";
 
 export type Point = { date: string; value: number | null; closed: boolean };
 export type Marker = { id: string; date: string; time: string; actor: string; summary: string; resets: boolean; href: string };
@@ -21,28 +22,31 @@ export function TimeSeries({ title, unit, points, markers, format, height = 180 
   const lastClosed = points.map((p, i) => (p.closed ? i : -1)).filter(i => i >= 0).pop();
 
   return (
-    <figure className="rounded-md border border-line bg-surface p-4">
+    <Card as="figure">
       <figcaption className="mb-1 flex items-baseline gap-3"><span className="font-semibold">{title}</span>{unit && <span className="font-mono text-[11px] text-muted">{unit}</span>}<span className="ml-auto font-mono text-[11px] text-muted">{h ? `${h.date} · ${h.value != null ? format(h.value) : "sin dato"}${h.closed ? "" : " · día en curso"}` : "pasa el cursor"}</span></figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}
-        onMouseLeave={() => setHover(null)}
+        onMouseLeave={() => setHover(null)}>
+        <defs><linearGradient id={`ts-${title.replace(/\W+/g, "-")}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#a78bfa" /></linearGradient></defs>
+        <g
         onMouseMove={e => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * W; let best = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i]! - x) < Math.abs(xs[best]! - x)) best = i; setHover(best); }}>
         {ticks.map(t => <g key={t}><line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" /><text x={padL - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{format(t)}</text></g>)}
         {points.map((p, i) => (i % Math.ceil(points.length / 8) === 0 || i === points.length - 1) && <text key={p.date} x={xs[i]} y={H - padB + 16} textAnchor="middle" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{p.date.slice(5)}</text>)}
         {lastClosed != null && lastClosed < points.length - 1 && <rect x={xs[lastClosed]} y={padT} width={(xs[points.length - 1] ?? 0) - (xs[lastClosed] ?? 0)} height={ih} fill="var(--color-amber-soft)" opacity="0.6" />}
-        <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke={`url(#ts-${title.replace(/\W+/g, "-")})`} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="glow-line" />
         {[...byDate.entries()].map(([i, ms]) => { const p = points[i]!; const cy = p.value != null ? y(p.value) : padT + ih; const resets = ms.some(m => m.resets); return (
           <g key={i}>
             <line x1={xs[i]} x2={xs[i]} y1={cy} y2={padT + ih} stroke={resets ? "var(--color-amber)" : "var(--color-ink)"} strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
-            <circle cx={xs[i]} cy={cy} r="5" fill={resets ? "var(--color-amber)" : "var(--color-ink)"} stroke="var(--color-surface)" strokeWidth="2" />
+            <circle cx={xs[i]} cy={cy} r="5" fill={resets ? "var(--color-amber)" : "var(--color-ink)"} stroke="var(--color-surface-solid)" strokeWidth="2" />
             {ms.length > 1 && <text x={xs[i]} y={cy - 9} textAnchor="middle" fontSize="10" fill="var(--color-muted)" fontFamily="var(--font-mono)">{ms.length}</text>}
           </g>); })}
-        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="var(--color-accent)" stroke="var(--color-surface)" strokeWidth="2" />}</g>}
+        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
+        </g>
       </svg>
       {h && byDate.get(hover!) && (
-        <ul className="mt-2 flex flex-col gap-1 rounded border border-line bg-paper p-2 text-[13px]">
-          {byDate.get(hover!)!.map(m => <li key={m.id}><span className="font-mono text-[11px] text-muted">{m.time}</span> <b>{m.actor}</b> {m.resets && <span className="text-amber">↻</span>} {m.summary.length > 140 ? m.summary.slice(0, 137) + "…" : m.summary} <a className="text-accent" href={m.href}>→</a></li>)}
+        <ul className="mt-2 flex flex-col gap-1 rounded-lg border border-line bg-paper p-2 text-[13px]">
+          {byDate.get(hover!)!.map(m => <li key={m.id}><span className="font-mono text-[11px] text-muted">{m.time}</span> <b>{m.actor}</b> {m.resets && <span className="text-amber">↻</span>} {m.summary.length > 140 ? m.summary.slice(0, 137) + "…" : m.summary} <a className="text-meta" href={m.href}>→</a></li>)}
         </ul>
       )}
-    </figure>
+    </Card>
   );
 }
