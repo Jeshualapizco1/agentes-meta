@@ -2,15 +2,34 @@
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
-## Bloqueado por el usuario
-- [ ] **Telegram:** crear el bot y el grupo del equipo (docs/02-accesos.md §Telegram), pegar `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env` y como secretos de GitHub (`gh secret set`). Hoy hay 2 avisos en espera (resumen de la pasada y una propuesta/alerta); salen solos en la siguiente corrida cuando existan los secretos.
-- [ ] Decidir si la web de Netlify lleva `META_TOKEN_AROMANTE` (hoy no lo tiene): con él, aprobar en Hoy simula al instante; sin él, la simulación la hace el collector en la siguiente pasada. Mi recomendación: no ponerlo hasta tener System User con token de solo lectura + otro de escritura.
-- [ ] **Llave de Claude para la narrativa semanal:** pegar `ANTHROPIC_API_KEY` en `.env` y subirla con `gh secret set ANTHROPIC_API_KEY --body "$(grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2 | xargs)"`. Sin ella el analista guarda la evidencia y los veredictos, pero el reporte queda sin redactar.
-- [ ] Dar de alta a Ernesto y Josué en https://bitacora-aromante.netlify.app/usuarios con sus contraseñas.
-- [ ] Rotar el token personal de Supabase y la contraseña admin, ambos pegados en el chat (Jeshua lo hace de su lado, 2026-09-03).
-- [x] Perfil de Aromante 1 capturado en la app (margen 30%, equilibrio 2.5, objetivo 6, CPA 170, techo 15,000, piso 9,000, cambio máx. 17%).
-- [ ] Decidir canal de alertas (WhatsApp, Slack o email) y credenciales.
-- [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
+## Del lado de Jeshua (en orden)
+1. [ ] **Telegram:** crear el bot con @BotFather, crear el grupo del equipo, meter al bot, obtener el chat id (docs/02 §Telegram). Guardar `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env` y como secretos de GitHub. Hay avisos en espera que saldrán solos.
+2. [ ] **Llave de Claude:** `ANTHROPIC_API_KEY` en `.env` y en secretos (`gh secret set ANTHROPIC_API_KEY --body "$(grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2 | xargs)"`). Sin ella el reporte semanal sale sin redacción.
+3. [ ] **Confirmar el cron:** `gh run list --workflow=collector` debe mostrar corridas con trigger `schedule` cuatro veces al día. Desde aquí no se lanzan corridas manuales: la "primera semana en solitario" cuenta 7 días de corridas programadas sin ninguna manual.
+4. [ ] **Eduardo contesta el cuestionario** `docs/06-criterio-operacion.md` por WhatsApp, en lenguaje natural.
+5. [ ] **Eduardo revisa tres veredictos maduros** en /analisis contra lo que recuerda. Sugeridos: los cinco "mixtos" (empezando por el +13 % del 26/08 en «CBO | PROMO ESCALONADA» y el −20 % del 12/08 en «CBO | SCALE») y uno donde las dos lecturas coinciden. Del recálculo con datos completos ningún veredicto cambió de lectura: no hay urgencia extra ahí.
+6. [ ] **Primer experimento real** desde una sesión reciente (Convertir en experimento) para probar el flujo activar → evaluando → confirmar.
+7. [ ] Dar de alta a Ernesto y Josué en /usuarios; compartirles `docs/07-operacion.md`.
+8. [ ] Rotar el token personal de Supabase y la contraseña admin (pegados en el chat el 2026-09-03).
+9. [ ] Decidir si la web de Netlify lleva `META_TOKEN_AROMANTE` (recomendación: no hasta tener System User con tokens separados de lectura y escritura).
+10. [ ] System User de Meta con token sin caducidad (el actual vence 2026-11-02); en su momento, uno de solo lectura para la bitácora y otro con `ads_management` para la ejecución.
+11. [ ] Capturar en Configuración los noes duros y revisar la lista blanca (hoy con lo que había).
+12. [ ] Leer el reporte de "primera semana en solitario" cuando llegue y decidir si se activan las primeras reglas.
+
+## Bloqueado hasta
+| Construcción | Depende de |
+|---|---|
+| Reglas de acción del estratega (`generateCandidates` por regla, con evidencia y prueba) | 4 (respuestas de Eduardo) |
+| Calibrar umbrales del analista (10 pts, mínimos de compras) | 5 (revisión de veredictos) y 12 (semana en solitario) |
+| Primeras propuestas reales en Hoy | reglas de acción + 3 (cron confirmado) + lista blanca (11) |
+| Avisos por Telegram funcionando | 1 |
+| Narrativa del reporte semanal | 2 |
+| Apagar `dry_run` en Aromante 1 (ejecución real) | 10 (System User con escritura) + dos semanas de simulaciones revisadas + decisión de Jeshua (docs/07 §7) |
+| Botón "Revertir" y candado `espera` leyendo `entity_freezes` | ejecución real |
+| Paso de una regla a modo auto | ejecución real + N aprobaciones sin corrección |
+| Alta de Ernesto y Josué como operadores | 7 |
+
+**A partir de aquí no se construye nada nuevo hasta que lleguen las respuestas de Eduardo.** El sistema corre solo; la siguiente sesión de construcción empieza por transcribir sus reglas.
 
 ## Siguiente sesión
 - [ ] **Siguiente (Fase 3, propósito b):** entidad experimento (hipótesis y criterio de éxito declarados antes, ligada a la sesión) y veredicto automático contra el criterio. Después, en este orden: estratega en modo semi con cola de propuestas en Hoy (Fase 4, diseño ya escrito en ROADMAP.md), luego alertas.
@@ -33,6 +52,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] **Verificar el cron** después de la primera corrida programada (00:17 CDMX del 2026-09-04): `gh run list --workflow=collector` debe mostrar una fila con trigger `schedule`. Contexto: el 2026-09-03 la de las 18:00 CDMX no corrió; se movió el schedule al minuto 17 y `gh workflow list` confirma que está `active`. Si sigue sin correr, hacer un commit vacío y revisar Settings → Actions del repo.
 
 ## Hecho (últimas sesiones)
+- 2026-09-04 (noche, 13) · **Última vuelta antes de la semana en solitario:** recálculo de ventanas con datos completos (ningún veredicto cambió de lectura; 6 preliminares actualizaron cifras) y rastro de cambios de veredicto (`verdict_changes`, migración 0019); manual de operación para el equipo (`docs/07-operacion.md`); reporte de "primera semana en solitario" por Telegram (una vez, tras 7 días de corridas programadas sin manuales; `week-report --force` para previsualizar); PENDIENTES con "Del lado de Jeshua" y "Bloqueado hasta". 77 pruebas en core.
 - 2026-09-04 (tarde, 12) · **Paginación, Telegram y tubería 4b simulada:** (0) auditoría de lecturas sin paginar: `fetchAll` en db y web, aplicado en collector, ingesta de insights (reexpresiones perdidas), analista, estratega, Hoy, Anuncios (mostraba 1,000 de ~3,000) y Horarios; regla en CLAUDE.md. (1) Corrección de monto al aprobar (decisión humana con razón, racha a cero) y filtro de Bitácora con Estratega y Meta. (2) Telegram: formatos en core (5 pruebas), cliente, `notifications` con clave única, integrado al collector y al workflow, comando `notify`. (3) Fase 4b simulada: core de ejecución (3 operaciones, WAL 4 estados, rollback del par, congelamiento, reconocimiento de órdenes propias; 12 pruebas), `MetaWriter`, ejecutor con `dry_run` por cuenta, `executions` y `entity_freezes`, Hoy con últimas decisiones, collector reetiqueta órdenes propias. 75 pruebas en core.
 - 2026-09-04 (tarde, 11) · **Campaña resuelta + estratega semi:** (1) el mapa de entidades se leía sin paginar (1,000 de 3,700 filas): ahora completo, con jerarquía anuncio → ad set → campaña y consulta a Meta por id; 16 sesiones sin campaña → 5 (nivel cuenta), 66 → 87 ventanas con doble lectura. (2) Estratega: core puro (candados en fila, pasada, expiración, freno; 15 pruebas), migración 0015 (`rules` versionada con historial por trigger, `proposals`, `emergency_brakes`, dos reglas de techo sembradas), pasada diaria en el collector con huella en Bitácora, cola de propuestas y freno en Hoy, auto deshabilitado "disponible en Fase 4b". (3) docs/06: cómo una respuesta de Eduardo se vuelve fila de `rules`, con las dos reglas de techo como ejemplos y una de acción ilustrativa. 58 pruebas en core.
 - 2026-09-04 (mañana, 10) · **Cierre de la Fase 3:** (1) causa guardada por cada referencia faltante (`missing_refs`) con distribución real en docs/05 §4c: de 78 ventanas sin doble lectura, 9 se resuelven solas, 0 son de volumen, 69 estructurales (48 sin campaña identificada, 21 campañas nuevas, 6 sin gasto después); una referencia con < 10 compras no cuenta; una sola lectura no pasa de confianza media. (2) Techo en dos capas con `max_committed_budget_factor` (1.3) en Configuración; `blocks_scaling` en `stats.ceiling`; G1/G2 contestadas. (3) Experimentos: core con 4 pruebas, migración 0014, analista que evalúa contra el criterio propio y alerta `experiment_ready`, /experimentos con presupuesto de exploración, alta, activar, cancelar, confirmar veredicto e historial; botón "Convertir en experimento" en la sesión. (4) Cuestionario con nota de lenguaje natural para WhatsApp. 40 pruebas en core.
