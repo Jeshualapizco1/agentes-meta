@@ -20,12 +20,19 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   const tz = acc?.timezone_name ?? "America/Mexico_City";
   const sinceDate = new Date(Date.now() - 21 * 86400_000).toISOString().slice(0, 10);
   const since14 = new Date(Date.now() - 14 * 86400_000).toISOString();
-  const [{ data: prof }, { data: rows }, { data: sessions }, { data: alerts }] = await Promise.all([
+  const since7 = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const [{ data: prof }, { data: rows }, { data: sessions }, { data: alerts }, { data: activeAds }, { data: adSpend }, { data: adReviews }] = await Promise.all([
     sb.from("account_profiles").select("target_roas,breakeven_roas,target_cpa,daily_spend_ceiling").eq("account_id", accountId).maybeSingle(),
     sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).order("date"),
     sb.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind").eq("account_id", accountId).eq("significance", "major").eq("actor_kind", "person").gte("started_at", since14).order("started_at", { ascending: false }).limit(60),
     sb.from("alerts").select("id,kind,severity,message,created_at,account_id").is("acknowledged_at", null).or(`account_id.eq.${accountId},account_id.is.null`).order("created_at", { ascending: false }).limit(6),
+    sb.from("entities").select("id").eq("account_id", accountId).eq("level", "ad").eq("effective_status", "ACTIVE"),
+    sb.from("insights_daily").select("entity_id,spend").eq("account_id", accountId).eq("level", "ad").gte("date", since7.slice(0, 10)).gt("spend", 0).limit(50000),
+    sb.from("ad_reviews").select("ad_id").eq("account_id", accountId).gte("created_at", since7),
   ]);
+  // Anuncios activos con gasto en 7 días que nadie ha marcado como revisados en 7 días
+  const spent = new Set((adSpend ?? []).map(r => r.entity_id as string)), reviewed = new Set((adReviews ?? []).map(r => r.ad_id as string));
+  const unreviewedAds = (activeAds ?? []).filter(a => spent.has(a.id as string) && !reviewed.has(a.id as string)).length;
 
   // Agregado diario (misma regla que Cuenta): días completos en la zona de la cuenta
   const byDate = new Map<string, Day>();
@@ -56,7 +63,8 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Hoy · {fmtDay(today + "T12:00:00-06:00")} · zona {tz}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: <span className="text-gradient">cómo va la cuenta</span></h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Hoy · {fmtDay(today + "T12:00:00-06:00")} · zona {tz}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: <span className="text-gradient">cómo va la cuenta</span></h1>
+          <a href={`/anuncios?account=${accountId}&orden=sinrevisar`} className="mt-2 inline-block text-sm hover:underline">{unreviewedAds > 0 ? <Chip tone="amber">{unreviewedAds} anuncios sin revisar →</Chip> : <Chip tone="ok">anuncios al día →</Chip>}</a></div>
         <form className="ml-auto flex gap-2" method="get">
           <select name="account" defaultValue={accountId} className="border border-line px-3 py-1.5 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
           <button className="btn-accent px-4 py-1.5 text-sm">Ver</button>

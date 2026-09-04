@@ -28,7 +28,7 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - ~~Shopify (ventas netas, MER, CAC)~~ eliminado el 2026-09-03: la verdad es Meta (wetracked.io conectado); el proyecto es solo paid media
 - [~] Regla de día cerrado (hecha en ingesta y vista Cuenta) + insignias de madurez y cobertura en cada métrica (pendiente)
 - [x] Gráficas con los cambios marcados sobre ROAS, CPA y gasto (vista Cuenta, v1)
-- [ ] Vista por anuncio con miniatura y contador de "anuncios sin revisar"
+- [x] Vista por anuncio (/anuncios) con miniatura, gasto/ROAS/CPA/CTR por periodo, marcar revisado y contador de "anuncios sin revisar" (también en Hoy)
 - [x] Rediseño Bento UI tema oscuro (tokens, Card/Kpi/Sparkline, barra lateral) — 2026-09-03
 - [x] Panel "Hoy" (/hoy, página de inicio): ROAS héroe vs objetivo, gasto y compras, gasto de ayer vs techo, CPA, últimos cambios, alertas, propuestas (vacío hasta Fase 4)
 - [ ] Criterio: ver cualquier cambio y su "después" en una sola pantalla

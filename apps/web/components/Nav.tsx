@@ -6,13 +6,14 @@ const ICON: Record<string, string> = {
   hoy: "M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
   bitacora: "M5 4h14v16H5zM8 8h8M8 12h8M8 16h5",
   cuenta: "M4 19h16M6 15l4-5 3 3 5-7",
+  anuncios: "M4 5h16v14H4zM4 15l4-4 3 3 3-4 6 5M15 9h.01",
   horarios: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4v5l3 2",
   configuracion: "M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0M14 5v4M8 10v4M16 15v4",
   usuarios: "M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 19v-1a3 3 0 0 0-2-2.8M15.5 4.2a3.5 3.5 0 0 1 0 6.6",
   estado: "M3 12h4l3-7 4 14 3-7h4",
 };
 export const NAV = [
-  { href: "/hoy", label: "Hoy", icon: "hoy" }, { href: "/bitacora", label: "Bitácora", icon: "bitacora", also: ["/sesion"] }, { href: "/cuenta", label: "Cuenta", icon: "cuenta" },
+  { href: "/hoy", label: "Hoy", icon: "hoy" }, { href: "/bitacora", label: "Bitácora", icon: "bitacora", also: ["/sesion"] }, { href: "/cuenta", label: "Cuenta", icon: "cuenta" }, { href: "/anuncios", label: "Anuncios", icon: "anuncios" },
   { href: "/horarios", label: "Horarios", icon: "horarios" }, { href: "/configuracion", label: "Configuración", icon: "configuracion" }, { href: "/usuarios", label: "Usuarios", icon: "usuarios" }, { href: "/estado", label: "Estado del sistema", icon: "estado" },
 ];
 
