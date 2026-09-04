@@ -30,7 +30,8 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - [~] Regla de día cerrado (hecha en ingesta y vista Cuenta) + insignias de madurez y cobertura en cada métrica (pendiente)
 - [x] Gráficas con los cambios marcados sobre ROAS, CPA y gasto (vista Cuenta, v1)
 - [ ] Vista por anuncio con miniatura y contador de "anuncios sin revisar"
-- [ ] Panel "Hoy": gasto de ayer vs. techo, últimos cambios, propuestas pendientes, cambios de la semana
+- [x] Rediseño Bento UI tema oscuro (tokens, Card/Kpi/Sparkline, barra lateral) — 2026-09-03
+- [x] Panel "Hoy" (/hoy, página de inicio): ROAS héroe vs objetivo, MER/CAC, gasto de ayer vs techo, CPA, últimos cambios, alertas, propuestas (vacío hasta Fase 4)
 - [ ] Criterio: ver cualquier cambio y su "después" en una sola pantalla
 
 ## Fase 3 · Agente semanal (semanas 5-6)
