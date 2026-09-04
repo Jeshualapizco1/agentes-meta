@@ -12,7 +12,7 @@ export function Filters({ accounts, actors, params }: { accounts: Account[]; act
         </select></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Responsable
         <select name="actor" defaultValue={cur.actor} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink">
-          <option value="">Todos</option>{actors.map(a => <option key={a} value={a}>{a}</option>)}
+          <option value="">Todos</option>{actors.map(a => <option key={a} value={a}>{a === "Estratega" ? "Estratega (agente)" : a === "Meta" ? "Meta (sistema)" : a}</option>)}
         </select></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Mostrar
         <select name="sig" defaultValue={cur.sig} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink">

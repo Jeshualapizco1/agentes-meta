@@ -14,13 +14,17 @@ export default async function Bitacora({ searchParams }: { searchParams: Promise
   const range = resolveRange(params, 14);
   const [{ data: accounts }, { data: actorsRaw }] = await Promise.all([
     sb.from("accounts").select("id,name").eq("enabled", true).order("name"),
-    sb.from("change_sessions").select("actor_name").eq("actor_kind", "person"),
+    sb.from("change_sessions").select("actor_name,actor_kind").in("actor_kind", ["person", "agent", "meta"]),
   ]);
-  const actors = [...new Set((actorsRaw ?? []).map(a => a.actor_name as string))].sort();
+  // personas primero; el Estratega (agente) y Meta (sistema) al final para poder filtrar por ellos
+  const people = [...new Set((actorsRaw ?? []).filter(a => a.actor_kind === "person").map(a => a.actor_name as string))].sort();
+  const systems = [...new Set((actorsRaw ?? []).filter(a => a.actor_kind !== "person").map(a => a.actor_name as string))].sort();
+  const actors = [...people, ...systems];
   let q = sb.from("change_sessions").select("*").gte("started_at", range.sinceIso).lte("started_at", range.untilIso).order("started_at", { ascending: false }).limit(800);
   if (params.account) q = q.eq("account_id", params.account);
   if (params.actor) q = q.eq("actor_name", params.actor);
-  const sig = params.sig ?? "decisions";
+  // al filtrar por el Estratega o por Meta, sus sesiones son menores o de sistema: sin filtro de significancia por defecto
+  const sig = params.sig ?? (params.actor && systems.includes(params.actor) ? "all" : "decisions");
   if (sig === "major") q = q.eq("significance", "major"); else if (sig !== "all") q = q.neq("significance", "system");
   const { data: sessions, error } = await q;
   if (error) throw new Error(error.message);

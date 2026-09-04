@@ -14,16 +14,23 @@ export async function decideProposal(form: FormData) {
   if (!["aprobada", "rechazada"].includes(decision)) back(account, { error: "Decisión inválida." });
   if (decision === "rechazada" && !reason) back(account, { error: "Para rechazar hay que escribir la razón." });
   const sb = db();
-  const { data: x } = await sb.from("proposals").select("id,status,rule_id").eq("id", id).single();
+  const { data: x } = await sb.from("proposals").select("id,status,rule_id,after_value").eq("id", id).single();
   if (!x || x.status !== "pendiente") back(account, { error: "La propuesta ya no está pendiente." });
-  const { error } = await sb.from("proposals").update({ status: decision, decided_by: user.email, decided_at: new Date().toISOString(), decision_reason: reason || null }).eq("id", id);
+  // corrección de monto: la persona aprueba con otro valor; queda como decisión humana con razón y reinicia la racha
+  const afterRaw = String(form.get("after") ?? "").trim();
+  const corrected = decision === "aprobada" && afterRaw !== "" && typeof x.after_value === "number" && Number(afterRaw) !== x.after_value;
+  if (corrected && !reason) back(account, { error: "Para corregir el monto hay que escribir la razón." });
+  if (corrected && !(Number(afterRaw) > 0)) back(account, { error: "El monto corregido debe ser mayor que cero." });
+  const patch: Record<string, unknown> = { status: decision, decided_by: user.email, decided_at: new Date().toISOString(), decision_reason: reason || null };
+  if (corrected) Object.assign(patch, { corrected: true, proposed_value: x.after_value, after_value: Number(afterRaw) });
+  const { error } = await sb.from("proposals").update(patch).eq("id", id);
   if (error) back(account, { error: error.message });
-  // racha de la regla: aprobada sin corrección suma; rechazo la regresa a cero (el paso a auto es de la Fase 4b)
+  // racha de la regla: aprobada sin corrección suma; rechazo o corrección la regresan a cero (el paso a auto es de la Fase 4b)
   if (x.rule_id) {
     const { data: r } = await sb.from("rules").select("approved_streak").eq("id", x.rule_id).single();
-    await sb.from("rules").update({ approved_streak: decision === "aprobada" ? Number(r?.approved_streak ?? 0) + 1 : 0, updated_by: user.email }).eq("id", x.rule_id);
+    await sb.from("rules").update({ approved_streak: decision === "aprobada" && !corrected ? Number(r?.approved_streak ?? 0) + 1 : 0, updated_by: user.email }).eq("id", x.rule_id);
   }
-  revalidatePath("/hoy"); back(account, { decidido: decision });
+  revalidatePath("/hoy"); back(account, { decidido: corrected ? "aprobada con corrección" : decision });
 }
 
 /** Cualquier usuario puede frenar la cuenta. */
