@@ -9,4 +9,5 @@ export * from "./ceiling.js";
 export * from "./experiments.js";
 export * from "./entities.js";
 export * from "./strategist.js";
+export * from "./notifications.js";
 export * from "./evaluation.js";

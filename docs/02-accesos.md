@@ -41,3 +41,10 @@ Correos de quienes entrarán: tú, Eduardo Torres y quien más opere cuentas.
 2. Ábrelo en https://developers.facebook.com/tools/debug/accesstoken/ y pulsa "Extender token de acceso".
 3. Copia el token extendido y pégalo en `.env` en `META_TOKEN_AROMANTE=`.
 
+
+## Telegram (canal de alertas)
+1. Crear el bot con @BotFather (`/newbot`), copiar el token.
+2. Crear el grupo del equipo, meter al bot y mandar un mensaje; obtener el chat id con `https://api.telegram.org/bot<TOKEN>/getUpdates` (campo `chat.id`, negativo para grupos).
+3. Guardar `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env` y como secretos de GitHub (`gh secret set TELEGRAM_BOT_TOKEN --body ...`).
+4. Probar: `pnpm --filter @agentes-meta/agents exec tsx src/cli.ts notify` manda lo pendiente de avisar de los últimos 3 días.
+Qué se envía: alertas críticas al momento, resumen diario tras la pasada del estratega, propuestas pendientes y expiradas. Warning e info solo en /estado. Registro en la tabla `notifications`.

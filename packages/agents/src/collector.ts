@@ -8,6 +8,7 @@
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
 import { strategistWatch, strategistPass } from "./strategist.js";
+import { notifyPending, telegramFromEnv } from "./telegram.js";
 import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, fetchAll, type Db } from "@agentes-meta/db";
@@ -42,6 +43,8 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
       log(`✖ ${acc.name}: ${msg}`);
     }
   }
+  // avisos por Telegram de lo que dejó esta corrida (críticas, resumen de la pasada, propuestas); falla aparte, nunca tira el collector
+  try { await notifyPending(o.db, telegramFromEnv(), log); } catch (e) { log(`⚠ telegram: ${e instanceof Error ? e.message : String(e)}`); }
 }
 
 /**
