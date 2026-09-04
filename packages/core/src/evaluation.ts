@@ -36,6 +36,8 @@ export const MISSING_REF_RESOLVES_ALONE: MissingRefCause[] = ["pendiente"];
 export type Agreement = "agree" | "partial" | "mixed" | "single" | "none";
 export interface Evaluation {
   horizon: Horizon; status: "pending" | "preliminary" | "mature"; starts_at: string; ends_at: string;
+  /** Días cerrados que ya existen después del cambio (0 … N). */
+  closed_days: number;
   treatment: { before: WindowMetrics; after: WindowMetrics }; control: { before: WindowMetrics; after: WindowMetrics } | null;
   /** Segunda referencia: la campaña tocada en los BASELINE_DAYS días cerrados previos al cambio. */
   baseline: WindowMetrics;
@@ -70,8 +72,8 @@ function metrics(rows: DailyRow[], from: string, to: string, ids: Set<string> | 
 }
 
 /** Evalúa un cambio hecho el día `changeDate` (fecha en zona de la cuenta) sobre `campaignIds`, con filas diarias por campaña de toda la cuenta (solo días completos). */
-export function evaluateChange(o: { changeDate: string; campaignIds: string[]; rows: DailyRow[]; horizon: Horizon; today: string; kind?: string }): Evaluation {
-  const N = HORIZON_DAYS[o.horizon];
+export function evaluateChange(o: { changeDate: string; campaignIds: string[]; rows: DailyRow[]; horizon: Horizon; today: string; kind?: string; windowDays?: number }): Evaluation {
+  const N = o.windowDays ?? HORIZON_DAYS[o.horizon];   // windowDays: ventana libre (experimentos); si no, la del horizonte
   const beforeFrom = addDays(o.changeDate, -N), beforeTo = addDays(o.changeDate, -1);
   const afterFrom = addDays(o.changeDate, 1), afterToPlanned = addDays(o.changeDate, N);
   const lastClosed = addDays(o.today, -1);
@@ -121,7 +123,7 @@ export function evaluateChange(o: { changeDate: string; campaignIds: string[]; r
     else if (control_spend_pct != null && Math.abs(control_spend_pct) >= CONTROL_SPEND_SHIFT_PCT) caveats.push(`El gasto del resto de la cuenta se movió ${s(control_spend_pct)} en la ventana: el control no fue estable.`);
   }
   const verdict = buildVerdict({ status, confidence, roas_pct, cpa_pct, control_roas_pct, diff_roas_pts, self_roas_pct, vsRest, vsSelf, agreement, N, closedAfterDays });
-  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, treatment, control, baseline, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts), self_roas_pct: r1(self_roas_pct), self_cpa_pct: r1(self_cpa_pct) }, reading, agreement, missing_refs: { rest: restCause, self: selfCause }, confidence, verdict, caveats };
+  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, closed_days: closedAfterDays, treatment, control, baseline, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts), self_roas_pct: r1(self_roas_pct), self_cpa_pct: r1(self_cpa_pct) }, reading, agreement, missing_refs: { rest: restCause, self: selfCause }, confidence, verdict, caveats };
 }
 
 function buildVerdict(x: { status: Evaluation["status"]; confidence: Confidence; roas_pct: number | null; cpa_pct: number | null; control_roas_pct: number | null; diff_roas_pts: number | null; self_roas_pct: number | null; vsRest: Reading | null; vsSelf: Reading | null; agreement: Agreement; N: number; closedAfterDays: number }): string {

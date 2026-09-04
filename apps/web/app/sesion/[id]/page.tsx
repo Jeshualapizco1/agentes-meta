@@ -29,7 +29,7 @@ export default async function Sesion({ params }: { params: Promise<{ id: string 
       </div>
 
       <Card>
-        <h2 className="font-semibold">¿Por qué se hizo este cambio?</h2>
+        <div className="flex items-start gap-3"><h2 className="font-semibold">¿Por qué se hizo este cambio?</h2><a href={`/experimentos?account=${s.account_id}&session=${id}`} className="ml-auto rounded-xl border border-line px-3 py-1 text-sm hover:text-ink" title="Precarga las campañas tocadas; declaras hipótesis, criterio de éxito y presupuesto">Convertir en experimento →</a></div>
         <p className="text-sm text-muted">La bitácora sabe qué pasó; solo quien lo hizo sabe por qué. Una línea basta. Si es una prueba, di qué esperas ver y en cuánto tiempo.</p>
         {(notes ?? []).map(n => <blockquote key={n.id} className="mt-3 border-l-2 border-meta pl-3 text-[15px]"><b>{n.author_email.split("@")[0]}</b>: {n.reason}{n.hypothesis && <><br /><span className="text-muted">Hipótesis:</span> {n.hypothesis}</>}{n.success_criterion && <><br /><span className="text-muted">Criterio de éxito:</span> {n.success_criterion}</>}</blockquote>)}
         <form action={annotate} className="mt-3 grid gap-2 sm:grid-cols-2">

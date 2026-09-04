@@ -12,7 +12,7 @@ Bitácora inteligente de Meta Ads para Aromante (fragancias para hombres, Méxic
 
 Tres agentes:
 1. **Collector** (diario 00:00 CDMX + cada 6 h): baja cambios y entidades de Meta, los agrupa en sesiones legibles con hora, responsable y acción.
-2. **Analista semanal** (construido 2026-09-03; corre tras cada collector y genera el reporte los lunes 00:17 CDMX): ventanas 72h/7d/14d por sesión (campañas tocadas vs. resto de la cuenta), evidencia determinista en `analyses.evidence`, narrativa con Claude `claude-opus-5` si hay `ANTHROPIC_API_KEY`. Pantalla /analisis.
+2. **Analista semanal** (construido 2026-09-03; corre tras cada collector y genera el reporte los lunes 00:17 CDMX): ventanas 72h/7d/14d por sesión (campañas tocadas vs. resto de la cuenta), evidencia determinista en `analyses.evidence`, narrativa con Claude `claude-opus-5` si hay `ANTHROPIC_API_KEY`. Pantalla /analisis. También evalúa los **experimentos** (hipótesis, criterio y presupuesto declarados antes; presupuesto de exploración = % del techo) contra su propio criterio y propone veredicto; una persona lo confirma en /experimentos.
 3. **Estratega** (Fase 4): highlights, cuándo escalar, recortar y hacer dayparting, como **propuestas** en una cola en Hoy (modo semi: aprobar/rechazar en un clic con razón). En Fase 4b un **ejecutor** aplica lo aprobado con write-ahead log y rollback, y cada regla pasa a **auto** cuando acumula N propuestas aprobadas sin corrección; cualquier rechazo, corrección o rollback la regresa a semi. Freno de emergencia por cuenta.
 Todo se ve en una app web muy visual (`apps/web`).
 

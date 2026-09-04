@@ -35,7 +35,7 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 
 ## Fase 3 · Agente semanal (semanas 5-6)
 - [x] Ventanas de evaluación por sesión a 72 h, 7 d y 14 d: campañas tocadas vs. resto de la cuenta, antes vs. después, solo días completos (core con pruebas; tabla `evaluation_windows`)
-- [ ] Entidad experimento con hipótesis y criterio de éxito declarados antes (propósito (b): veredicto automático contra el criterio)
+- [x] Entidad experimento con hipótesis y criterio de éxito declarados antes (propósito (b)): presupuesto de exploración (% del techo), estados borrador/activo/evaluando/graduado/descartado/cancelado, evaluación contra el criterio propio con las dos referencias, veredicto propuesto por el analista y confirmado por una persona, "Convertir en experimento" desde la sesión, pantalla /experimentos, 4 pruebas en core — 2026-09-04
 - [x] Definiciones por escrito en `docs/05-analista.md`; salvedades por ventana (presupuesto compartido, control pequeño, control inestable); narrativa con cita obligatoria de la fila de evidencia — 2026-09-03
 - [x] Segunda referencia por ventana (la campaña contra sí misma en los 7 días cerrados previos); veredicto con las dos lecturas: coinciden → confianza normal, una plana → indicio (tope media), se contradicen → mixto (tope baja) — 2026-09-04
 - [x] Paquete de evidencia determinista (`buildWeeklyEvidence`) + narrativa con Claude (claude-opus-5; requiere `ANTHROPIC_API_KEY` en secretos)

@@ -5,7 +5,7 @@
  *  2. Reporte semanal: paquete de evidencia determinista (core) + narrativa con Claude si hay ANTHROPIC_API_KEY.
  *     Se genera los lunes (cierre del domingo) o a petición; nunca se duplica para el mismo periodo.
  */
-import { evaluateChange, buildWeeklyEvidence, toZoned, CDMX, HORIZON_DAYS, type DailyRow, type Horizon, type Evaluation, type WeeklySession, type WeeklyEvidence } from "@agentes-meta/core";
+import { evaluateChange, evaluateExperiment, buildWeeklyEvidence, toZoned, CDMX, HORIZON_DAYS, BASELINE_DAYS, type DailyRow, type Horizon, type Evaluation, type WeeklySession, type WeeklyEvidence, type ExperimentMetric } from "@agentes-meta/core";
 import { upsertChunks, type Db } from "@agentes-meta/db";
 import { writeWeeklyNarrative } from "./narrative.js";
 
@@ -37,6 +37,32 @@ export async function evaluateSessions(db: Db, acc: Acc, sessions: SessionRow[],
   }
   if (upserts.length) await upsertChunks(db, "evaluation_windows", upserts, "session_id,horizon");
   return out;
+}
+
+/**
+ * Experimentos activos o en evaluación: se evalúan contra su propio criterio (core). Al cerrar la ventana pasan a
+ * `evaluando` con veredicto propuesto y se alerta; el veredicto final lo confirma una persona en /experimentos.
+ */
+type ExpRow = { id: string; name: string; metric: ExperimentMetric | null; threshold: number | null; min_purchases: number; window_days: number; campaign_ids: string[]; start_date: string | null; status: string };
+export async function evaluateExperiments(db: Db, acc: Acc, today: string, log: (m: string) => void): Promise<{ experiments: number; evaluating: number }> {
+  const { data, error } = await db.from("experiments").select("id,name,metric,threshold,min_purchases,window_days,campaign_ids,start_date,status").eq("account_id", acc.id).in("status", ["activo", "evaluando"]);
+  if (error) throw new Error(error.message);
+  const exps = ((data ?? []) as ExpRow[]).filter(x => x.metric && x.threshold != null && x.start_date);
+  if (!exps.length) return { experiments: 0, evaluating: 0 };
+  const rows = await loadRows(db, acc.id, addDays(exps.map(x => x.start_date!).sort()[0]!, -BASELINE_DAYS - 1));
+  let evaluating = 0;
+  for (const x of exps) {
+    const ev = evaluateExperiment({ exp: { metric: x.metric!, threshold: Number(x.threshold), min_purchases: x.min_purchases, window_days: x.window_days, campaign_ids: x.campaign_ids ?? [], start_date: x.start_date! }, rows, today });
+    const status = x.status === "activo" && ev.status === "mature" ? "evaluando" : x.status;
+    if (status === "evaluando") evaluating++;
+    const { error: ue } = await db.from("experiments").update({ evaluation: ev, proposed_verdict: ev.proposed, status, updated_at: new Date().toISOString() }).eq("id", x.id);
+    if (ue) throw new Error(ue.message);
+    if (status !== x.status) {
+      await db.from("alerts").insert({ account_id: acc.id, kind: "experiment_ready", severity: "info", message: `El experimento «${x.name}» cerró su ventana de ${x.window_days} días. Veredicto propuesto: ${ev.proposed}. Confirmar en /experimentos.`, payload: { experiment_id: x.id, proposed: ev.proposed } });
+      log(`  ⚗ ${x.name}: ${ev.proposed}`);
+    }
+  }
+  return { experiments: exps.length, evaluating };
 }
 
 /** Paquete de evidencia semanal de una cuenta con periodo que termina en `periodEnd` (fecha en zona de la cuenta). */
@@ -82,6 +108,7 @@ export async function runAnalyst(o: AnalystOptions): Promise<void> {
       const rows = await loadRows(o.db, acc.id, addDays(today, -(days + HORIZON_DAYS["14d"] + 1)));
       const evals = await evaluateSessions(o.db, acc, (sessions ?? []) as SessionRow[], rows, today);
       const stats: Record<string, number | string> = { sessions: evals.size, windows: evals.size * HORIZONS.length, mature: [...evals.values()].flat().filter(e => e.status === "mature").length };
+      Object.assign(stats, await evaluateExperiments(o.db, acc, today, log));
       // semanal: lunes (cierre del domingo) en modo auto, o forzado
       const cdmx = toZoned(new Date(), CDMX); const isMonday = new Date(`${cdmx.date}T12:00:00Z`).getUTCDay() === 1;
       if (o.weekly === "force" || (o.weekly === "auto" && isMonday)) {

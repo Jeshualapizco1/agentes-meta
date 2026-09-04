@@ -56,6 +56,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Field name="daily_spend_ceiling" label="Techo de gasto diario" unit="MXN" help="Suma de todas las campañas activas. Nunca se rebasa." value={prof?.daily_spend_ceiling} />
             <Field name="daily_spend_floor" label="Piso de gasto diario" unit="MXN" help="Por debajo, el agente avisa que la cuenta se está apagando." value={prof?.daily_spend_floor} />
+            <Field name="exploration_budget_pct" label="Presupuesto de exploración" unit="% del techo" help="Reservado a experimentos. La suma de presupuestos de experimentos activos no puede rebasarlo." value={prof?.exploration_budget_pct ?? 10} />
             <Field name="max_committed_budget_factor" label="Factor de presupuesto comprometido" unit="× techo" help="Si la suma de presupuestos diarios activos rebasa techo × este factor, el estratega no propone subidas y avisa (alerta info)." value={prof?.max_committed_budget_factor ?? 1.3} />
             <Field name="max_budget_change_pct" label="Cambio máximo por movimiento" unit="%" help="Más del 20% reinicia la fase de aprendizaje de Meta." value={prof?.max_budget_change_pct ?? 20} />
             <Field name="max_cumulative_change_pct" label="Cambio acumulado máximo" unit="%" help="Suma de movimientos de presupuesto sobre la misma campaña dentro de la ventana de abajo. Frena el goteo de +17% cada 3 días." value={prof?.max_cumulative_change_pct ?? 35} />

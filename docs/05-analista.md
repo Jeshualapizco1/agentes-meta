@@ -239,7 +239,37 @@ recibe el modelo (`packages/agents/src/narrative.ts`):
 Para revisar un reporte basta seguir cada referencia hasta su fila en `analyses.evidence`: si un número no aparece ahí
 tal cual, el reporte está mal y se corrige el prompt, no la evidencia.
 
-## 10. Dónde vive cada cosa
+## 10. Experimentos con presupuesto de exploración
+
+Propósito (b) del proyecto: testear con hipótesis y criterio de éxito declarados **antes**, y veredicto automático contra
+ese criterio (código en `packages/core/src/experiments.ts`, pruebas en `experiments.test.ts`; pantalla `/experimentos`).
+
+- **Presupuesto de exploración** = techo de gasto diario × `exploration_budget_pct` (perfil de cuenta, 10 % por defecto,
+  editable en Configuración con historial). La suma de presupuestos de los experimentos `activo` y `evaluando` no puede
+  rebasarlo; activar uno que no cabe falla con el monto que sobra.
+- **Un experimento no se activa** sin hipótesis, métrica objetivo (ROAS o CPA), umbral, compras mínimas, ventana en días
+  cerrados, presupuesto, campañas vinculadas y fecha de inicio (`validateExperiment` lista lo que falta). Se puede guardar
+  como borrador incompleto; activar es lo que exige todo.
+- **Estados:** borrador → activo → evaluando → graduado | descartado; cancelado en cualquier momento por una persona.
+- **Evaluación:** en cada corrida el analista evalúa los activos con `evaluateChange` sobre sus campañas, con la fecha de
+  inicio como día del cambio, la ventana declarada como N y **las mismas dos referencias** (§4b). Mide la métrica objetivo
+  en la ventana "después" (ROAS = valor/gasto; CPA = gasto/compras) contra el umbral (ROAS ≥, CPA ≤). Cuando la ventana
+  cierra (N días cerrados) el experimento pasa a `evaluando` con veredicto propuesto y se crea la alerta `experiment_ready`:
+
+  | Situación al cerrar la ventana | Veredicto propuesto |
+  |---|---|
+  | compras < mínimas o métrica sin dato | `sin_evidencia` (extender o descartar) |
+  | las dos referencias se contradicen (`mixed`) | `revisar` a mano |
+  | cumple el umbral | `graduar` al presupuesto principal |
+  | no cumple | `descartar` |
+
+- **El veredicto final lo confirma una persona** en `/experimentos` (graduar o descartar, con razón obligatoria); queda
+  quién, cuándo y por qué. El analista nunca cierra un experimento solo.
+- **Vinculación con la bitácora:** desde `/sesion/[id]`, "Convertir en experimento" precarga las campañas tocadas, la
+  hipótesis de la anotación y la fecha de la sesión. El experimento guarda `session_id` como origen (sin FK: el regrupado
+  puede cambiar ese ID; es informativo).
+
+## 11. Dónde vive cada cosa
 
 | Qué | Dónde |
 |---|---|
@@ -248,4 +278,5 @@ tal cual, el reporte está mal y se corrige el prompt, no la evidencia.
 | Carga de datos, guardado y corrida | `packages/agents/src/analyst.ts` |
 | Narrativa con Claude | `packages/agents/src/narrative.ts` |
 | Tablas | `evaluation_windows` (una fila por sesión y horizonte; migraciones 0009, 0010 salvedades, 0011 `baseline`, `agreement`, `reading`), `analyses` (una por cuenta y periodo) |
+| Experimentos | `packages/core/src/experiments.ts`, `packages/agents/src/analyst.ts` (`evaluateExperiments`), tabla `experiments` (migración 0014), `apps/web/app/experimentos/` |
 | Pantalla | `apps/web/app/analisis/page.tsx` |
