@@ -3,10 +3,14 @@ import { useState } from "react";
 import { Card } from "./Card";
 
 export type Point = { date: string; value: number | null; closed: boolean };
+/** Formatos serializables (un componente cliente no puede recibir funciones desde el servidor). */
+export type Fmt = "mxn0" | "fixed1" | "fixed2" | "int";
+const FMT: Record<Fmt, (v: number) => string> = { mxn0: v => "$" + Math.round(v).toLocaleString("es-MX"), fixed1: v => v.toFixed(1), fixed2: v => v.toFixed(2), int: v => v.toFixed(0) };
 export type Marker = { id: string; date: string; time: string; actor: string; summary: string; resets: boolean; href: string };
 
 /** Gráfica de una serie en el tiempo con marcadores de cambios. Un eje. Línea 2px. Hover con crosshair + tooltip. */
-export function TimeSeries({ title, unit, points, markers, format, height = 180 }: { title: string; unit?: string; points: Point[]; markers: Marker[]; format: (v: number) => string; height?: number }) {
+export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height = 180 }: { title: string; unit?: string; points: Point[]; markers: Marker[]; fmt?: Fmt; height?: number }) {
+  const format = FMT[fmt];
   const [hover, setHover] = useState<number | null>(null);
   const W = 920, H = height, padL = 56, padR = 16, padT = 14, padB = 34;
   const iw = W - padL - padR, ih = H - padT - padB;
