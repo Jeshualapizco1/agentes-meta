@@ -20,6 +20,17 @@ export class MetaClient {
     return this.fetchJson<T>(url.toString());
   }
 
+  /** POST de escritura (solo lo usa MetaWriter, que solo conoce tres operaciones). Parámetros como formulario. */
+  async post<T = unknown>(path: string, params: Record<string, string | number>): Promise<T> {
+    const url = `${this.base}/${path.replace(/^\//, "")}`;
+    const body = new URLSearchParams({ ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])), access_token: this.o.token });
+    const res = await fetch(url, { method: "POST", body, signal: AbortSignal.timeout(90_000) });
+    const json = (await res.json()) as { error?: { code?: number; error_subcode?: number; message?: string; fbtrace_id?: string } } & T;
+    if (json.error) throw new MetaApiError(json.error.code, json.error.error_subcode, json.error.message ?? "Meta API error", json.error.fbtrace_id);
+    if (!res.ok) throw new MetaApiError(res.status, undefined, `HTTP ${res.status}`);
+    return json;
+  }
+
   private async fetchJson<T>(url: string, attempt = 0): Promise<T> {
     let res: Response;
     try {
@@ -85,3 +96,5 @@ export class MetaClient {
     return this.paginate<Record<string, unknown> & { id: string; name: string; adset_id: string; campaign_id: string }>(`act_${accountId}/ads`, { fields: "id,name,adset_id,campaign_id,status,effective_status,created_time,updated_time,creative{id,name,thumbnail_url}" });
   }
 }
+
+export * from "./write.js";
