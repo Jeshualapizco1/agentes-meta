@@ -27,7 +27,7 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
 
   return (
     <Card as="figure">
-      <figcaption className="mb-1 flex items-baseline gap-3"><span className="font-semibold">{title}</span>{unit && <span className="font-mono text-[11px] text-muted">{unit}</span>}<span className="ml-auto font-mono text-[11px] text-muted">{h ? `${h.date} · ${h.value != null ? format(h.value) : "sin dato"}${h.closed ? "" : " · día en curso"}` : "pasa el cursor"}</span></figcaption>
+      <figcaption className="mb-1 flex items-baseline gap-3"><span className="font-semibold">{title}</span>{unit && <span className="font-mono text-[11px] text-muted">{unit}</span>}<span className="ml-auto font-mono text-[11px] text-muted">{h ? `${h.date} · ${h.value != null ? format(h.value) : "sin dato"}${h.closed ? "" : " · día en curso"}${byDate.get(hover!) ? ` · ${byDate.get(hover!)!.length} cambio(s)` : ""}` : "pasa el cursor"}</span></figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}
         onMouseLeave={() => setHover(null)}>
         <defs><linearGradient id={`ts-${title.replace(/\W+/g, "-")}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#a78bfa" /></linearGradient></defs>
@@ -46,11 +46,6 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
         {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
         </g>
       </svg>
-      {h && byDate.get(hover!) && (
-        <ul className="mt-2 flex flex-col gap-1 rounded-lg border border-line bg-paper p-2 text-[13px]">
-          {byDate.get(hover!)!.map(m => <li key={m.id}><span className="font-mono text-[11px] text-muted">{m.time}</span> <b>{m.actor}</b> {m.resets && <span className="text-amber">↻</span>} {m.summary.length > 140 ? m.summary.slice(0, 137) + "…" : m.summary} <a className="text-meta" href={m.href}>→</a></li>)}
-        </ul>
-      )}
     </Card>
   );
 }
