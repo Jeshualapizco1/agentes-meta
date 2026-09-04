@@ -19,6 +19,7 @@ export interface CollectorOptions { db: Db; meta: MetaClient; shopify?: ShopifyC
 
 export async function runCollector(o: CollectorOptions): Promise<void> {
   const log = o.log ?? console.log;
+  await checkTokenExpiry(o, log);
   const { data: accounts, error } = await o.db.from("accounts").select("id,name,timezone_name,shopify_domain").eq("enabled", true);
   if (error) throw new Error(error.message);
   const targets = (accounts ?? []).filter(a => !o.accountIds || o.accountIds.includes(a.id));
@@ -37,6 +38,20 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
       log(`✖ ${acc.name}: ${msg}`);
     }
   }
+}
+
+/** Consulta debug_token y alerta (meta_token_expiring, warning) cuando faltan menos de 10 días; una alerta por día mientras no se atienda. */
+async function checkTokenExpiry(o: CollectorOptions, log: (m: string) => void): Promise<void> {
+  try {
+    const t = await o.meta.debugToken();
+    const exp = t.expires_at ? new Date(t.expires_at * 1000) : null;
+    const daysLeft = exp ? (exp.getTime() - Date.now()) / 86400_000 : null;
+    log(`token de Meta: ${t.is_valid ? "válido" : "INVÁLIDO"} · vence ${exp ? toZoned(exp, CDMX).date : "nunca"}${daysLeft != null ? ` (${daysLeft.toFixed(1)} días)` : ""}`);
+    if (exp && daysLeft != null && daysLeft < 10) {
+      const { count } = await o.db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", "meta_token_expiring").is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+      if (!count) await o.db.from("alerts").insert({ account_id: null, kind: "meta_token_expiring", severity: "warning", message: `El token de Meta vence el ${toZoned(exp, CDMX).date} (faltan ${Math.max(0, Math.floor(daysLeft))} días). Generar uno nuevo y actualizar el secreto META_TOKEN_AROMANTE en GitHub y .env (docs/02-accesos.md).`, payload: { expires_at: exp.toISOString(), scopes: t.scopes ?? null, type: t.type ?? null } });
+    }
+  } catch (e) { log(`⚠ no se pudo consultar debug_token: ${e instanceof Error ? e.message : String(e)}`); }
 }
 
 async function collectAccount(o: CollectorOptions, acc: { id: string; name: string; timezone_name: string; shopify_domain: string | null }, log: (m: string) => void) {

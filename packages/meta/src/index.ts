@@ -58,6 +58,11 @@ export class MetaClient {
     return this.get<{ id: string; name: string; account_status: number; currency: string; timezone_name: string; timezone_offset_hours_utc: number; amount_spent: string }>(`act_${id}`, { fields: "name,account_status,currency,timezone_name,timezone_offset_hours_utc,amount_spent" });
   }
 
+  /** Estado del token en uso (debug_token). expires_at = 0 significa sin caducidad (System User). */
+  debugToken() {
+    return this.get<{ data: { is_valid: boolean; expires_at: number; data_access_expires_at?: number; scopes?: string[]; type?: string; error?: { message: string } } }>("debug_token", { input_token: this.o.token }).then(r => r.data);
+  }
+
   activities(accountId: string, sinceUnix: number, untilUnix?: number) {
     return this.paginate<RawActivity>(`act_${accountId}/activities`, {
       fields: "event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_id,application_name,extra_data",
