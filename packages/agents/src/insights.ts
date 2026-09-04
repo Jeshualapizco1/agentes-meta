@@ -6,7 +6,7 @@
  */
 import { toZoned, type EntityMap } from "@agentes-meta/core";
 import type { MetaClient } from "@agentes-meta/meta";
-import { upsertChunks, type Db } from "@agentes-meta/db";
+import { upsertChunks, fetchAll, type Db } from "@agentes-meta/db";
 
 type Level = "campaign" | "adset" | "ad";
 interface Row { date_start: string; campaign_id?: string; adset_id?: string; ad_id?: string; spend?: string; impressions?: string; reach?: string; clicks?: string; inline_link_clicks?: string; cpm?: string; ctr?: string; frequency?: string; actions?: { action_type: string; value: string }[]; action_values?: { action_type: string; value: string }[]; purchase_roas?: { action_type: string; value: string }[] }
@@ -39,8 +39,9 @@ export async function ingestInsights(db: Db, meta: MetaClient, acc: { id: string
       const ids = [...new Set(out.map(o => o.entity_id))];
       const prev = new Map<string, { spend: number; purchases: number | null; purchase_value: number | null; fetched_at: string; raw: unknown }>();
       for (let i = 0; i < ids.length; i += 200) {
-        const { data } = await db.from("insights_daily").select("entity_id,date,spend,purchases,purchase_value,fetched_at,raw").in("entity_id", ids.slice(i, i + 200)).gte("date", out[0]!.date < today ? toZoned(sinceD, acc.timezone_name).date : today);
-        for (const p of data ?? []) prev.set(`${p.entity_id}|${p.date}`, p);
+        // paginado: 200 entidades × 14 días pasan de las 1000 filas que devuelve PostgREST por petición (antes se perdían reexpresiones)
+        const data = await fetchAll<{ entity_id: string; date: string; spend: number; purchases: number | null; purchase_value: number | null; fetched_at: string; raw: unknown }>(() => db.from("insights_daily").select("entity_id,date,spend,purchases,purchase_value,fetched_at,raw").in("entity_id", ids.slice(i, i + 200)).gte("date", out[0]!.date < today ? toZoned(sinceD, acc.timezone_name).date : today));
+        for (const p of data) prev.set(`${p.entity_id}|${p.date}`, p);
       }
       const hist = out.filter(o => { const p = prev.get(`${o.entity_id}|${o.date}`); return p && (Number(p.spend) !== o.spend || Number(p.purchases ?? 0) !== Number(o.purchases ?? 0) || Number(p.purchase_value ?? 0) !== Number(o.purchase_value ?? 0)); })
         .map(o => { const p = prev.get(`${o.entity_id}|${o.date}`)!; return { entity_id: o.entity_id, date: o.date, fetched_at: p.fetched_at, spend: p.spend, purchases: p.purchases, purchase_value: p.purchase_value, raw: p.raw }; });

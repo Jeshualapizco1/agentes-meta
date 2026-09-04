@@ -6,7 +6,7 @@
  *     Se genera los lunes (cierre del domingo) o a petición; nunca se duplica para el mismo periodo.
  */
 import { evaluateChange, evaluateExperiment, buildWeeklyEvidence, toZoned, CDMX, HORIZON_DAYS, BASELINE_DAYS, type DailyRow, type Horizon, type Evaluation, type WeeklySession, type WeeklyEvidence, type ExperimentMetric } from "@agentes-meta/core";
-import { upsertChunks, type Db } from "@agentes-meta/db";
+import { upsertChunks, fetchAll, type Db } from "@agentes-meta/db";
 import { writeWeeklyNarrative } from "./narrative.js";
 
 const HORIZONS: Horizon[] = ["72h", "7d", "14d"];
@@ -16,14 +16,8 @@ type SessionRow = { id: string; started_at: string; actor_name: string; summary:
 
 /** Filas diarias por campaña (solo días completos) desde `since`. */
 async function loadRows(db: Db, accountId: string, since: string): Promise<DailyRow[]> {
-  const out: DailyRow[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from("insights_daily").select("entity_id,date,spend,purchases,purchase_value").eq("account_id", accountId).eq("level", "campaign").eq("is_closed_day", true).gte("date", since).order("date").range(from, from + 999);
-    if (error) throw new Error(error.message);
-    for (const r of data ?? []) out.push({ entity_id: r.entity_id, date: r.date, spend: Number(r.spend ?? 0), purchases: Number(r.purchases ?? 0), value: Number(r.purchase_value ?? 0) });
-    if (!data || data.length < 1000) break;
-  }
-  return out;
+  const data = await fetchAll<{ entity_id: string; date: string; spend: number | null; purchases: number | null; purchase_value: number | null }>(() => db.from("insights_daily").select("entity_id,date,spend,purchases,purchase_value").eq("account_id", accountId).eq("level", "campaign").eq("is_closed_day", true).gte("date", since).order("date"));
+  return data.map(r => ({ entity_id: r.entity_id, date: r.date, spend: Number(r.spend ?? 0), purchases: Number(r.purchases ?? 0), value: Number(r.purchase_value ?? 0) }));
 }
 
 /** Calcula y guarda las ventanas de una lista de sesiones. Devuelve las evaluaciones por sesión. */
@@ -68,15 +62,15 @@ export async function evaluateExperiments(db: Db, acc: Acc, today: string, log: 
 /** Paquete de evidencia semanal de una cuenta con periodo que termina en `periodEnd` (fecha en zona de la cuenta). */
 export async function buildWeekly(db: Db, acc: Acc, periodEnd: string): Promise<WeeklyEvidence> {
   const since = addDays(periodEnd, -HORIZON_DAYS["14d"] - 14);
-  const [rows, { data: sessions }, { data: camps }, { data: prof }] = await Promise.all([
+  const [rows, sessions, camps, { data: prof }] = await Promise.all([
     loadRows(db, acc.id, since),
-    db.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind,campaign_ids").eq("account_id", acc.id).eq("significance", "major").eq("actor_kind", "person").gte("started_at", `${addDays(periodEnd, -6)}T00:00:00-06:00`).lte("started_at", `${periodEnd}T23:59:59-06:00`).order("started_at"),
-    db.from("entities").select("id,name").eq("account_id", acc.id).eq("level", "campaign"),
+    fetchAll<SessionRow>(() => db.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind,campaign_ids").eq("account_id", acc.id).eq("significance", "major").eq("actor_kind", "person").gte("started_at", `${addDays(periodEnd, -6)}T00:00:00-06:00`).lte("started_at", `${periodEnd}T23:59:59-06:00`).order("started_at")),
+    fetchAll<{ id: string; name: string }>(() => db.from("entities").select("id,name").eq("account_id", acc.id).eq("level", "campaign")),
     db.from("account_profiles").select("target_roas,breakeven_roas,target_cpa,daily_spend_ceiling").eq("account_id", acc.id).maybeSingle(),
   ]);
-  const evals = await evaluateSessions(db, acc, (sessions ?? []) as SessionRow[], rows, addDays(periodEnd, 1));
-  const weeklySessions: WeeklySession[] = ((sessions ?? []) as SessionRow[]).map(s => ({ id: s.id, started_at: s.started_at, actor_name: s.actor_name, summary: s.summary, resets_learning: s.resets_learning, kind: s.kind, evaluations: (evals.get(s.id) ?? []).map(e => ({ horizon: e.horizon, status: e.status, confidence: e.confidence, verdict: e.verdict, delta: e.delta, caveats: e.caveats, agreement: e.agreement, reading: e.reading, missing_refs: e.missing_refs })) }));
-  return buildWeeklyEvidence({ periodEnd, rows, campaignNames: new Map((camps ?? []).map(c => [c.id as string, c.name as string])), sessions: weeklySessions, targets: { target_roas: num(prof?.target_roas), breakeven_roas: num(prof?.breakeven_roas), target_cpa: num(prof?.target_cpa), daily_spend_ceiling: num(prof?.daily_spend_ceiling) } });
+  const evals = await evaluateSessions(db, acc, sessions, rows, addDays(periodEnd, 1));
+  const weeklySessions: WeeklySession[] = sessions.map(s => ({ id: s.id, started_at: s.started_at, actor_name: s.actor_name, summary: s.summary, resets_learning: s.resets_learning, kind: s.kind, evaluations: (evals.get(s.id) ?? []).map(e => ({ horizon: e.horizon, status: e.status, confidence: e.confidence, verdict: e.verdict, delta: e.delta, caveats: e.caveats, agreement: e.agreement, reading: e.reading, missing_refs: e.missing_refs })) }));
+  return buildWeeklyEvidence({ periodEnd, rows, campaignNames: new Map(camps.map(c => [c.id, c.name])), sessions: weeklySessions, targets: { target_roas: num(prof?.target_roas), breakeven_roas: num(prof?.breakeven_roas), target_cpa: num(prof?.target_cpa), daily_spend_ceiling: num(prof?.daily_spend_ceiling) } });
 }
 
 /** Guarda (o completa) el análisis semanal de un periodo. Con llave de Claude añade la narrativa; sin llave deja `narrative` en null. */
@@ -104,9 +98,9 @@ export async function runAnalyst(o: AnalystOptions): Promise<void> {
     try {
       const today = toZoned(new Date(), acc.timezone_name).date;
       const days = o.days ?? 30;
-      const { data: sessions } = await o.db.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind,campaign_ids").eq("account_id", acc.id).eq("significance", "major").eq("actor_kind", "person").gte("started_at", new Date(Date.now() - days * 86400_000).toISOString()).order("started_at");
+      const sessions = await fetchAll<SessionRow>(() => o.db.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind,campaign_ids").eq("account_id", acc.id).eq("significance", "major").eq("actor_kind", "person").gte("started_at", new Date(Date.now() - days * 86400_000).toISOString()).order("started_at"));
       const rows = await loadRows(o.db, acc.id, addDays(today, -(days + HORIZON_DAYS["14d"] + 1)));
-      const evals = await evaluateSessions(o.db, acc, (sessions ?? []) as SessionRow[], rows, today);
+      const evals = await evaluateSessions(o.db, acc, sessions, rows, today);
       const stats: Record<string, number | string> = { sessions: evals.size, windows: evals.size * HORIZONS.length, mature: [...evals.values()].flat().filter(e => e.status === "mature").length };
       Object.assign(stats, await evaluateExperiments(o.db, acc, today, log));
       // semanal: lunes (cierre del domingo) en modo auto, o forzado

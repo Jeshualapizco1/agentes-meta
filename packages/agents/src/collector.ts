@@ -10,7 +10,7 @@
 import { strategistWatch, strategistPass } from "./strategist.js";
 import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
-import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
+import { upsertChunks, insertReturning, fetchAll, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
 import { ingestHourly } from "./hourly.js";
 
@@ -49,13 +49,7 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
  * más lo vivo que acaba de bajar el collector. La campaña se resuelve por jerarquía anuncio → ad set → campaña.
  */
 export async function loadEntityMap(db: Db, accountId: string, live: EntityRow[] = []): Promise<EntityMap> {
-  const rows: EntityRow[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from("entities").select("id,name,level,campaign_id,parent_id").eq("account_id", accountId).range(from, from + 999);
-    if (error) throw new Error(error.message);
-    rows.push(...((data ?? []) as EntityRow[]));
-    if (!data || data.length < 1000) break;
-  }
+  const rows = await fetchAll<EntityRow>(() => db.from("entities").select("id,name,level,campaign_id,parent_id").eq("account_id", accountId));
   return entityMapFromRows([...rows, ...live]);
 }
 
@@ -172,7 +166,7 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     const lastClosed = new Date(`${accToday}T12:00:00Z`); lastClosed.setUTCDate(lastClosed.getUTCDate() - 1); const lastClosedDate = lastClosed.toISOString().slice(0, 10);
     const [{ data: prof }, { data: spendRows }] = await Promise.all([
       db.from("account_profiles").select("daily_spend_ceiling,max_committed_budget_factor").eq("account_id", acc.id).maybeSingle(),
-      db.from("insights_daily").select("date,spend").eq("account_id", acc.id).eq("level", "campaign").in("date", [lastClosedDate, accToday]),
+      fetchAll<{ date: string; spend: number | null }>(() => db.from("insights_daily").select("date,spend").eq("account_id", acc.id).eq("level", "campaign").in("date", [lastClosedDate, accToday])).then(data => ({ data })),
     ]);
     const sum = (d: string) => { const xs = (spendRows ?? []).filter(r => r.date === d); return xs.length ? xs.reduce((a, r) => a + Number(r.spend ?? 0), 0) : null; };
     check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, committedFactor: prof?.max_committed_budget_factor != null ? Number(prof.max_committed_budget_factor) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
@@ -218,21 +212,16 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   const iso = cutoff.toISOString(); const log = opts.log ?? (() => {});
   let resolvedFromMeta = 0;
   const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message); };
-  // select ... where col in (ids) por lotes de 200: PostgREST manda el filtro en la URL y con cientos de UUIDs falla
-  // lectura completa paginada (PostgREST corta en 1000 filas)
-  const selectAll = async <T>(build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }> }): Promise<T[]> => { const out: T[] = []; for (let from = 0; ; from += 1000) { const { data, error } = await build().range(from, from + 999); fail(error); out.push(...((data ?? []) as T[])); if (!data || data.length < 1000) break; } return out; };
-  const selectIn = async <T>(table: string, cols: string, col: string, ids: string[]): Promise<T[]> => { const out: T[] = []; for (let i = 0; i < ids.length; i += 200) { const { data, error } = await db.from(table).select(cols).in(col, ids.slice(i, i + 200)); fail(error); out.push(...((data ?? []) as T[])); } return out; };
+  // select ... where col in (ids) por lotes de 200 (PostgREST manda el filtro en la URL y con cientos de UUIDs falla), cada lote paginado
+  const selectAll = fetchAll;
+  const selectIn = async <T>(table: string, cols: string, col: string, ids: string[]): Promise<T[]> => { const out: T[] = []; for (let i = 0; i < ids.length; i += 200) out.push(...await fetchAll<T>(() => db.from(table).select(cols).in(col, ids.slice(i, i + 200)))); return out; };
 
   // 1. eventos del rango (paginado)
   const all: (NormalizedEvent & { dbId: number; oldGroupId: string | null })[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from("change_events").select("id,group_id,event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_name,extra_data").eq("account_id", accountId).gte("event_time", iso).order("event_time").range(from, from + 999);
-    fail(error);
-    for (const r of data ?? []) {
-      const raw: RawActivity = { event_time: r.event_time, event_type: r.event_type, actor_id: r.actor_id, actor_name: r.actor_name, object_id: r.object_id, object_name: r.object_name, object_type: r.object_type, application_name: r.application_name ?? undefined, extra_data: r.extra_data ? JSON.stringify(r.extra_data) : undefined };
-      all.push({ ...normalize(accountId, raw), dbId: r.id as number, oldGroupId: (r.group_id as string | null) ?? null });
-    }
-    if (!data || data.length < 1000) break;
+  type EvRow = { id: number; group_id: string | null; event_time: string; event_type: string; actor_id: string | null; actor_name: string | null; object_id: string; object_name: string; object_type: string; application_name: string | null; extra_data: unknown };
+  for (const r of await fetchAll<EvRow>(() => db.from("change_events").select("id,group_id,event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_name,extra_data").eq("account_id", accountId).gte("event_time", iso).order("event_time"))) {
+    const raw: RawActivity = { event_time: r.event_time, event_type: r.event_type, actor_id: r.actor_id ?? undefined, actor_name: r.actor_name ?? undefined, object_id: r.object_id, object_name: r.object_name, object_type: r.object_type, application_name: r.application_name ?? undefined, extra_data: r.extra_data ? JSON.stringify(r.extra_data) : undefined };
+    all.push({ ...normalize(accountId, raw), dbId: r.id, oldGroupId: r.group_id ?? null });
   }
   const groups = all.length ? groupEvents(all) : [];
   // objetos cuya campaña no se resuelve ni por jerarquía: consultarlos a Meta por id (borrados incluidos) antes de armar sesiones

@@ -6,7 +6,7 @@ import { currentUser } from "@/lib/supabase/server";
 import { validateExperiment, explorationBudget, type ExperimentMetric } from "@agentes-meta/core";
 
 const num = (v: FormDataEntryValue | null) => { const s = String(v ?? "").trim().replace(/[$,%\s]/g, ""); if (!s) return null; const n = Number(s); return Number.isFinite(n) ? n : null; };
-const back = (account: string, q: Record<string, string>) => redirect(`/experimentos?account=${account}&${new URLSearchParams(q).toString()}`);
+function back(account: string, q: Record<string, string>): never { redirect(`/experimentos?account=${account}&${new URLSearchParams(q).toString()}`); }
 
 /** Límite de exploración y lo comprometido por los experimentos activos/evaluando de la cuenta (sin contar `excludeId`). */
 async function budgetCheck(sb: ReturnType<typeof db>, account: string, newBudget: number, excludeId?: string) {

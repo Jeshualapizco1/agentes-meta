@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, fetchAll } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fmtTime, fmtDay, initials } from "@/lib/format";
 import { toZoned } from "@agentes-meta/core";
@@ -36,8 +36,8 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
     sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).order("date"),
     sb.from("change_sessions").select("id,started_at,actor_name,summary,resets_learning,kind").eq("account_id", accountId).eq("significance", "major").eq("actor_kind", "person").gte("started_at", since14).order("started_at", { ascending: false }).limit(60),
     sb.from("alerts").select("id,kind,severity,message,created_at,account_id").is("acknowledged_at", null).or(`account_id.eq.${accountId},account_id.is.null`).order("created_at", { ascending: false }).limit(6),
-    sb.from("entities").select("id").eq("account_id", accountId).eq("level", "ad").eq("effective_status", "ACTIVE"),
-    sb.from("insights_daily").select("entity_id,spend").eq("account_id", accountId).eq("level", "ad").gte("date", since7.slice(0, 10)).gt("spend", 0).limit(50000),
+    fetchAll<{ id: string }>(() => sb.from("entities").select("id").eq("account_id", accountId).eq("level", "ad").eq("effective_status", "ACTIVE")).then(data => ({ data })),
+    fetchAll<{ entity_id: string; spend: number }>(() => sb.from("insights_daily").select("entity_id,spend").eq("account_id", accountId).eq("level", "ad").gte("date", since7.slice(0, 10)).gt("spend", 0)).then(data => ({ data })),
     sb.from("ad_reviews").select("ad_id").eq("account_id", accountId).gte("created_at", since7),
   ]);
   // Anuncios activos con gasto en 7 días que nadie ha marcado como revisados en 7 días

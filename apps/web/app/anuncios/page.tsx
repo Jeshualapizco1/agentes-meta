@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, fetchAll } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fmtDay, fmtTime, initials } from "@/lib/format";
 import { resolveRange } from "@/lib/range";
@@ -20,10 +20,11 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
   const por = [10, 25, 50].includes(Number(p.por)) ? Number(p.por) : 25;
   const { data: accounts } = await sb.from("accounts").select("id,name").eq("enabled", true).order("name");
   const [{ data: ads }, { data: parents }, { data: rows }, { data: reviews }] = await Promise.all([
-    sb.from("entities").select("id,name,effective_status,parent_id,campaign_id,updated_time,thumb:raw->creative->>thumbnail_url").eq("account_id", accountId).eq("level", "ad"),
-    sb.from("entities").select("id,name,level").eq("account_id", accountId).in("level", ["campaign", "adset"]),
-    sb.from("insights_daily").select("entity_id,spend,purchases,purchase_value,impressions,link_clicks").eq("account_id", accountId).eq("level", "ad").gte("date", range.from).lte("date", range.to).limit(50000),
-    sb.from("ad_reviews").select("ad_id,reviewed_by,note,created_at").eq("account_id", accountId).order("created_at", { ascending: false }).limit(5000),
+    // paginado: la cuenta tiene ~3,000 anuncios y PostgREST devuelve máximo 1,000 filas por petición
+    fetchAll<{ id: string; name: string; effective_status: string | null; parent_id: string | null; campaign_id: string | null; updated_time: string | null; thumb: string | null }>(() => sb.from("entities").select("id,name,effective_status,parent_id,campaign_id,updated_time,thumb:raw->creative->>thumbnail_url").eq("account_id", accountId).eq("level", "ad")).then(data => ({ data })),
+    fetchAll<{ id: string; name: string; level: string }>(() => sb.from("entities").select("id,name,level").eq("account_id", accountId).in("level", ["campaign", "adset"])).then(data => ({ data })),
+    fetchAll<{ entity_id: string; spend: number | null; purchases: number | null; purchase_value: number | null; impressions: number | null; link_clicks: number | null }>(() => sb.from("insights_daily").select("entity_id,spend,purchases,purchase_value,impressions,link_clicks").eq("account_id", accountId).eq("level", "ad").gte("date", range.from).lte("date", range.to)).then(data => ({ data })),
+    fetchAll<{ ad_id: string; reviewed_by: string; note: string | null; created_at: string }>(() => sb.from("ad_reviews").select("ad_id,reviewed_by,note,created_at").eq("account_id", accountId).order("created_at", { ascending: false })).then(data => ({ data })),
   ]);
   const nameOf = new Map((parents ?? []).map(e => [e.id as string, e.name as string]));
   const agg = new Map<string, Agg>();

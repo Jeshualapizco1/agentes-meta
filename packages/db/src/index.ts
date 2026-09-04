@@ -9,6 +9,21 @@ export function dbFromEnv(env: Record<string, string | undefined> = process.env)
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+/**
+ * Lectura completa paginada. PostgREST (Supabase) devuelve como máximo 1000 filas por petición aunque se pida `.limit(50000)`;
+ * toda lectura que pueda pasar de unas cientos de filas va por aquí. `build` arma la consulta (sin range); se recorre por páginas.
+ */
+export async function fetchAll<T>(build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }> }, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as T[]));
+    if (!data || data.length < pageSize) break;
+  }
+  return out;
+}
+
 /** Upsert por lotes; lanza en el primer error. */
 export async function upsertChunks(db: Db, table: string, rows: Record<string, unknown>[], onConflict: string, opts: { ignoreDuplicates?: boolean; chunk?: number } = {}): Promise<number> {
   const size = opts.chunk ?? 500; let n = 0;

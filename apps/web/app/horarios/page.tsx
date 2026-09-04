@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, fetchAll } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { shiftHourCell } from "@agentes-meta/core";
 import { Chip } from "@/components/Chip";
@@ -27,7 +27,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
   const tz = acc?.timezone_name ?? "America/Mexico_City";
   const since = range.from, until = range.to;
   const todayCdmx = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City" }).format(new Date());
-  const { data: rows } = await sb.from("insights_hourly").select("date,hour,spend,purchases,purchase_value").eq("account_id", accountId).gte("date", since).lte("date", until).limit(20000);
+  const rows = await fetchAll<{ date: string; hour: number; spend: number | null; purchases: number | null; purchase_value: number | null }>(() => sb.from("insights_hourly").select("date,hour,spend,purchases,purchase_value").eq("account_id", accountId).gte("date", since).lte("date", until));
   // Rejilla día de la semana × hora, en CDMX, solo días completos
   const grid: Cell[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, empty));
   const closedDays = new Set<string>();

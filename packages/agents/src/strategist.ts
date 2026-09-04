@@ -8,7 +8,7 @@
  *    no proponga nada. Aprobar en semi solo cambia el estado; nadie escribe en Meta hasta la Fase 4b.
  */
 import { runPass, generateCandidates, activeRules, expirePending, brakeTriggers, uuidV5, toZoned, type Rule, type LockContext, type CeilingCheck, type PassProposal } from "@agentes-meta/core";
-import type { Db } from "@agentes-meta/db";
+import { fetchAll, type Db } from "@agentes-meta/db";
 
 type Acc = { id: string; name: string; timezone_name: string };
 const addDays = (date: string, n: number) => { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -48,8 +48,8 @@ export async function strategistPass(db: Db, acc: Acc, o: { ceiling: CeilingChec
     const [{ data: prof }, { data: brake }, { data: ruleRows }, { data: pending }, { count: reviewed }] = await Promise.all([
       db.from("account_profiles").select("mode,whitelist_campaign_ids,max_budget_change_pct,max_cumulative_change_pct,cumulative_window_days,cooldown_hours,max_actions_per_day").eq("account_id", acc.id).maybeSingle(),
       db.from("emergency_brakes").select("active").eq("account_id", acc.id).maybeSingle(),
-      db.from("rules").select("id,name,action,condition,params,status,mode,valid_from,valid_to").eq("account_id", acc.id),
-      db.from("proposals").select("id,created_at").eq("account_id", acc.id).eq("status", "pendiente"),
+      fetchAll<Rule>(() => db.from("rules").select("id,name,action,condition,params,status,mode,valid_from,valid_to").eq("account_id", acc.id)).then(data => ({ data })),
+      fetchAll<{ id: string; created_at: string }>(() => db.from("proposals").select("id,created_at").eq("account_id", acc.id).eq("status", "pendiente")).then(data => ({ data })),
       db.from("entities").select("*", { count: "exact", head: true }).eq("account_id", acc.id).eq("effective_status", "ACTIVE"),
     ]);
     // 1. pendientes no decididas antes de esta pasada → expiradas
@@ -62,13 +62,13 @@ export async function strategistPass(db: Db, acc: Acc, o: { ceiling: CeilingChec
     // 3. contexto de candados (cambios de presupuesto previos sobre las entidades candidatas, persona o agente)
     const ids = [...new Set(candidates.map(c => c.entity_id))];
     const windowDays = Number(prof?.cumulative_window_days ?? 7);
-    const { data: recent } = ids.length ? await db.from("change_groups").select("object_id,started_at,details,actor_kind").eq("account_id", acc.id).eq("kind", "budget").in("object_id", ids).gte("started_at", new Date(now.getTime() - Math.max(windowDays * 86400_000, Number(prof?.cooldown_hours ?? 72) * 3600_000)).toISOString()) : { data: [] };
+    const recent = ids.length ? await fetchAll<{ object_id: string; started_at: string; details: unknown; actor_kind: string }>(() => db.from("change_groups").select("object_id,started_at,details,actor_kind").eq("account_id", acc.id).eq("kind", "budget").in("object_id", ids).gte("started_at", new Date(now.getTime() - Math.max(windowDays * 86400_000, Number(prof?.cooldown_hours ?? 72) * 3600_000)).toISOString())) : [];
     const ctx: LockContext = {
       now: nowIso, brakeActive: !!brake?.active, lastClosedAvailable: true,
       whitelist: (prof?.whitelist_campaign_ids as string[] | null) ?? [],
       maxChangePct: Number(prof?.max_budget_change_pct ?? 20), maxCumulativePct: Number(prof?.max_cumulative_change_pct ?? 35), cumulativeWindowDays: windowDays, cooldownHours: Number(prof?.cooldown_hours ?? 72), maxPerPass: Number(prof?.max_actions_per_day ?? 5),
       ceiling: o.ceiling ? { ceiling: o.ceiling.ceiling, over_spend: o.ceiling.over_spend, over_committed: o.ceiling.over_committed, budget_pct: o.ceiling.budget_pct, spend_pct: o.ceiling.spend_pct } : null,
-      recentChanges: (recent ?? []).map(r => ({ entity_id: r.object_id as string, at: r.started_at as string, pct: (r.details as { budget?: { pct?: number } } | null)?.budget?.pct ?? null, actor_kind: r.actor_kind as "person" | "agent" | "meta" | "rule" })),
+      recentChanges: recent.map(r => ({ entity_id: r.object_id as string, at: r.started_at as string, pct: (r.details as { budget?: { pct?: number } } | null)?.budget?.pct ?? null, actor_kind: r.actor_kind as "person" | "agent" | "meta" | "rule" })),
     };
     const result = runPass({ candidates, ctx, entitiesReviewed: reviewed ?? 0 });
     // 4. propuestas: primero la fila (write-ahead), pendiente o descartada con la razón del candado
