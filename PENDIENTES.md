@@ -21,7 +21,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] Vista de nomenclatura con entidades que tienen `issues`.
 - [x] Insights por hora en el collector (28 días cargados; 7 días en cada corrida) y pantalla Horarios con mapa día × hora en CDMX, regla de evidencia mínima y bloques mejores/peores.
 - [x] Acceso cambiado a usuario y contraseña (el enlace mágico chocó con el límite de correos de Supabase). Admin: jeshua@aromante.mx. Alta de usuarios en /usuarios (solo administradores).
-- [ ] Verificar que el cron de GitHub Actions corrió solo a las 00:00 CDMX (revisar en /estado o `gh run list --workflow=collector`).
+- [ ] Verificar que el cron de GitHub Actions corre solo. Observado el 2026-09-03: la corrida programada de las 18:00 CDMX (00:00 UTC) no apareció una hora después; solo hay corridas manuales (`gh run list --workflow=collector`). Si tampoco corre la de 00:00 CDMX, revisar que Actions esté habilitado para schedule en el repo o cambiar el minuto del cron (GitHub retrasa los `0 *`).
 
 ## Hecho (últimas sesiones)
 - 2026-09-03 (noche, 2) · Integración de Shopify: paquete cliente Admin API, agregación diaria en core (6 pruebas), ingesta en el collector con alertas propias, migración 0005 (tienda por cuenta, día cerrado), vista Cuenta con ventas netas, MER, clientes nuevos, CAC y comparación de atribución Meta vs pedidos reales; docs de accesos y cron.
