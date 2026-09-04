@@ -95,7 +95,84 @@ suman casi el doble del techo y Meta entrega alrededor de la mitad.
 
 ---
 
-## Cómo se convierte esto en reglas
+## Cómo se convierte una respuesta de Eduardo en una fila de `rules`
+
+Eduardo contesta por WhatsApp; el equipo técnico transcribe. Cada respuesta se vuelve **una fila** en `rules` (versionada:
+cada cambio deja historial en `rule_changes` con autor, por trigger) con estos campos:
+
+| Campo | Qué va | Ejemplo |
+|---|---|---|
+| `name` | identificador corto y estable | `techo_gasto_real` |
+| `description` | la respuesta de Eduardo, en sus palabras, sin editar | "subo 15 % si lleva tres días arriba de 6 de ROAS" |
+| `definition` | de dónde salió (pregunta del cuestionario, fecha, quién) | `{"pregunta":"B1-B3","fecha":"2026-09-10","fuente":"WhatsApp Eduardo"}` |
+| `condition` | la condición en JSON: métrica, operador, referencia y ventana | `{"metric":"roas","op":">=","ref":"target_roas","consecutive_closed_days":3}` |
+| `action` | una de `pausar_anuncio`, `subir_presupuesto`, `bajar_presupuesto`, `mover_presupuesto`, `bloquear_subidas` | `subir_presupuesto` |
+| `params` | parámetros de la acción | `{"pct":15}` |
+| `status` / `mode` | `activa` o `inactiva`; `semi` (aprueba una persona) o `auto` (Fase 4b, se gana con `approved_streak ≥ promote_after`) | `activa` / `semi` |
+| `valid_from` / `valid_to` | vigencia, por si una regla es de temporada | — |
+| `updated_by` | quién transcribió | `admin@aromante.mx` |
+
+Los candados **no** se transcriben como reglas: viven en el perfil de la cuenta (Configuración) y se evalúan en fila antes
+de cualquier propuesta (`evaluateLocks` en core, con prueba por candado). Una regla de acción solo dice *cuándo* y *qué*;
+los candados dicen *si puede salir*.
+
+**Ejemplo 1, ya en la base (regla de candado, de la respuesta G1):**
+
+> "El techo de $15,000 es real. Gasto real del último día cerrado por encima del techo: alerta warning y el estratega no
+> propone ninguna subida ese día."
+
+```
+name:        techo_gasto_real
+description: Gasto real del último día cerrado por encima del techo: alerta warning y ninguna propuesta de subida ese día.
+definition:  {"fuente":"docs/06 G1/G2, decisión de Jeshua 2026-09-04"}
+condition:   {"metric":"spend_last_closed","op":">","ref":"daily_spend_ceiling"}
+action:      bloquear_subidas
+params:      {"alert":"spend_over_ceiling","severity":"warning"}
+status/mode: activa / semi
+```
+
+Cómo se aplica: el collector calcula `spend_last_closed` en cada pasada; si rebasa el techo, el candado
+`techo_gasto_real` se cierra para cualquier `subir_presupuesto` o `mover_presupuesto` y la propuesta se registra como
+descartada con la razón "gasto real 104 % del techo: sin subidas hoy".
+
+**Ejemplo 2, ya en la base (regla de candado, de la respuesta G1, segunda capa):**
+
+> "Suma de presupuestos diarios activos por encima de techo × 1.3: el estratega no propone ninguna subida y avisa con
+> alerta info 'presupuesto comprometido X % del techo'."
+
+```
+name:        techo_presupuesto_comprometido
+description: Suma de presupuestos diarios activos por encima de techo × factor: alerta info y ninguna propuesta de subida.
+definition:  {"fuente":"docs/06 G1/G2, decisión de Jeshua 2026-09-04"}
+condition:   {"metric":"budget_active","op":">","ref":"daily_spend_ceiling","factor_ref":"max_committed_budget_factor"}
+action:      bloquear_subidas
+params:      {"alert":"budget_committed","severity":"info"}
+status/mode: activa / semi
+```
+
+El factor no va en la regla sino en el perfil (`max_committed_budget_factor`, editable en Configuración), para que
+cambiarlo no requiera una versión nueva de la regla.
+
+**Ejemplo 3, cómo se vería una regla de acción (todavía sin respuesta de Eduardo; ilustrativo):**
+
+> "Subo 15 % si lleva tres días cerrados arriba de 6 de ROAS y al menos 30 compras en esos días."
+
+```
+name:        subir_por_roas_sostenido
+description: Subo 15 % si lleva tres días cerrados arriba de 6 de ROAS y al menos 30 compras en esos días.
+definition:  {"pregunta":"B1-B3","fecha":"(pendiente)","fuente":"WhatsApp Eduardo"}
+condition:   {"metric":"roas","op":">=","ref":"target_roas","consecutive_closed_days":3,"min_purchases":30}
+action:      subir_presupuesto
+params:      {"pct":15}
+status/mode: activa / semi
+```
+
+Al activarla, `generateCandidates` (core) produce un candidato por campaña de la lista blanca que cumpla la condición, con
+la evidencia etiquetada ([W1] ROAS de los 3 días, [W2] compras, [O] objetivo del perfil); los candados deciden si sale
+como pendiente o descartada; en Hoy se aprueba o rechaza con razón. Cada aprobación sin corrección suma a
+`approved_streak`; un rechazo la regresa a cero.
+
+## Cómo se convierte esto en reglas (resumen)
 
 1. Cada fila contestada se transcribe a `rules` (cuenta, tipo, umbrales, candados, versión 1, modo `semi`) y se anota aquí
    el identificador de la regla junto a la pregunta.

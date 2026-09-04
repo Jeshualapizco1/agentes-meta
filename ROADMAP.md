@@ -48,10 +48,12 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 Propósito (c) del proyecto: automatizar la operación. El destino es **auto con candados**; esta fase construye el camino: toda acción nace como propuesta, se aprueba en un clic y deja rastro para que la regla se gane el modo auto.
 
 **Modelo de datos**
-- [ ] `rules`: reglas versionadas por cuenta (`kind`: scale | cut | pause | daypart | learning_alert; umbrales; candados propios; `mode` off | semi | auto; `version`; `approved_streak`; `promote_after` = N, default 10; historial de cambios).
-- [ ] `proposals`: propuesta con `rule_id` y versión, entidad objetivo, acción (`before` → `after`, p. ej. presupuesto 800 → 936), evidencia (referencias a filas: ventanas, insights, sesiones), candados verificados, `expires_at` (48 h), `status` pending | approved | rejected | expired | executed | rolled_back, `decided_by`, `decided_at`, `decision_note`, `corrected` (el aprobador cambió el monto = corrección).
-- [ ] Candados por cuenta (perfil): máximo % por cambio (hoy 17 %), **cambio acumulado máximo en una ventana de días (campo ya en el perfil: 35 % en 7 días por defecto)**, espera mínima entre cambios a la misma entidad (72 h), tope de gasto diario contra el **gasto real** (el collector ya lo calcula en cada pasada), piso, lista blanca de campañas, noes duros. Una propuesta que viola un candado no se crea; se registra como `blocked` en `agent_runs.stats`.
-- [ ] **Las reglas salen de `docs/06-criterio-operacion.md`** (cuestionario contestado por Eduardo), no del código: cada respuesta → fila versionada en `rules`.
+- [x] `rules` versionada por cuenta con historial por trigger (`rule_changes`): nombre, condición, acción (pausar anuncio, subir, bajar, mover, bloquear subidas), parámetros, estado, modo semi/auto, `approved_streak`, `promote_after`, vigencia. Sembradas las dos reglas de techo — 2026-09-04
+- [x] `proposals`: cuenta, regla, entidad, acción, antes/después, evidencia etiquetada, candados evaluados con razón, estado (pendiente, aprobada, rechazada, expirada, ejecutada, fallida, descartada por candado), quién, razón, fecha; expiran si no se deciden antes de la siguiente pasada — 2026-09-04
+- [x] Candados como función pura en core, en fila, con prueba por candado: freno, día cerrado, lista blanca, cambio máximo, cambio acumulado en ventana, espera (persona o agente), tope por pasada, techo por gasto real, techo por presupuesto comprometido — 2026-09-04
+- [x] Pasada del estratega en el collector solo con el día anterior cerrado; las otras vigilan; huella en Bitácora como actor agente aunque no proponga — 2026-09-04
+- [x] Freno de emergencia por cuenta (`emergency_brakes`): automático por gasto del día > techo × 1.5, exceso de propuestas, fallo de registro o problema de pago; cualquiera frena desde Hoy, solo admin libera con razón — 2026-09-04
+- [ ] **Las reglas de acción salen de `docs/06-criterio-operacion.md`** (respuestas de Eduardo): cada respuesta → fila en `rules` (§"cómo se convierte") y su generador de candidatos en `generateCandidates`.
 
 **Reglas v1** (una recomendación por semana que el equipo decida ejecutar)
 - [ ] Escalar: ventana 7d madura con confianza ≥ media, ROAS ≥ objetivo y `diff_roas_pts ≥ +10` sin salvedad de presupuesto compartido → subir presupuesto ≤ máximo por cambio.
@@ -60,8 +62,9 @@ Propósito (c) del proyecto: automatizar la operación. El destino es **auto con
 - [ ] Dayparting: matriz día × 4 bloques con ≥ 4 semanas de datos; con presupuesto diario solo se propone como texto (Meta no lo aplica).
 
 **Cola de propuestas en Hoy (modo semi)**
-- [ ] Tarjeta por propuesta: qué, por qué (evidencia citada), candados que pasó, botones Aprobar / Rechazar con razón obligatoria al rechazar; editar el monto cuenta como corrección.
-- [ ] Modo por cuenta y por regla (off / semi / auto) en Configuración; freno de emergencia por cuenta (pone todo en off y expira las pendientes).
+- [x] Tarjeta por propuesta en Hoy: qué, evidencia y candados desplegables, Aprobar / Rechazar con razón obligatoria al rechazar; aprobar en semi solo cambia el estado — 2026-09-04
+- [ ] Editar el monto al aprobar cuenta como corrección (`corrected`) y reinicia la racha.
+- [x] Modo por cuenta (off / semi; auto "disponible en Fase 4b") en Configuración — 2026-09-04
 - [ ] Criterio de éxito: cuatro semanas seguidas con al menos una propuesta aprobada por semana y menos de 30 % rechazadas.
 
 ## Fase 4b · Ejecución y paso a auto (después)
