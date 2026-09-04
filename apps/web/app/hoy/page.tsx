@@ -6,14 +6,17 @@ import { Card } from "@/components/Card";
 import { Kpi } from "@/components/Kpi";
 import { Sparkline, type SparkPoint } from "@/components/Sparkline";
 import { Chip } from "@/components/Chip";
+import { LOCK_LABEL, RULE_ACTION_LABEL, type LockName, type RuleAction } from "@agentes-meta/core";
+import { decideProposal, engageBrake, releaseBrake } from "./actions";
 export const dynamic = "force-dynamic";
+type Proposal = { id: string; rule_name: string | null; action: RuleAction; entity_name: string | null; entity_level: string; before_value: unknown; after_value: unknown; evidence: { ref: string; label: string; value: unknown }[]; locks: { lock: LockName; ok: boolean; reason: string }[]; created_at: string; expires_at: string | null };
 
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
 const CDMX_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City", year: "numeric", month: "2-digit", day: "2-digit" });
 type Day = { spend: number; purchases: number; value: number; closed: boolean };
 
 export default async function Hoy({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const p = await searchParams; await requireUser("/hoy"); const sb = db();
+  const p = await searchParams; const me = await requireUser("/hoy"); const sb = db();
   const { data: accounts } = await sb.from("accounts").select("id,name,timezone_name").eq("enabled", true).order("name");
   const accountId = p.account ?? "1703313583465547";
   const acc = (accounts ?? []).find(a => a.id === accountId);
@@ -21,6 +24,13 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   const sinceDate = new Date(Date.now() - 21 * 86400_000).toISOString().slice(0, 10);
   const since14 = new Date(Date.now() - 14 * 86400_000).toISOString();
   const since7 = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const [{ data: proposals }, { data: brake }, { data: mine }, { data: lastPass }] = await Promise.all([
+    sb.from("proposals").select("id,rule_name,action,entity_name,entity_level,before_value,after_value,evidence,locks,created_at,expires_at").eq("account_id", accountId).eq("status", "pendiente").order("created_at", { ascending: false }),
+    sb.from("emergency_brakes").select("*").eq("account_id", accountId).maybeSingle(),
+    sb.from("app_users").select("role").eq("email", (me?.email ?? "").toLowerCase()).maybeSingle(),
+    sb.from("agent_runs").select("started_at,status,stats").eq("agent", "strategist").eq("account_id", accountId).order("started_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const isAdmin = mine?.role === "admin";
   const [{ data: prof }, { data: rows }, { data: sessions }, { data: alerts }, { data: activeAds }, { data: adSpend }, { data: adReviews }] = await Promise.all([
     sb.from("account_profiles").select("target_roas,breakeven_roas,target_cpa,daily_spend_ceiling").eq("account_id", accountId).maybeSingle(),
     sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day").eq("account_id", accountId).eq("level", "campaign").gte("date", sinceDate).order("date"),
@@ -119,8 +129,26 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
           {alerts?.length ? <ul className="flex flex-col gap-2">{alerts.map(a => <li key={a.id} className="flex items-start gap-2 text-[13px]"><Chip tone={a.severity === "critical" ? "crit" : "amber"}>{a.kind}</Chip><span className="min-w-0">{a.message}<span className="block font-mono text-[11px] text-muted">{fmtTime(a.created_at)}</span></span></li>)}</ul> : <p className="flex items-center gap-2 text-sm text-muted"><Chip tone="ok">todo en orden</Chip> ninguna alerta abierta</p>}
         </Card>
 
-        <Card span={4} eyebrow="Propuestas pendientes">
-          <p className="text-sm text-muted">El estratega llega en Fase 4. Aquí aparecerán las propuestas de escalar, recortar y dayparting para aprobar o rechazar con razón.</p>
+        <Card span={4} eyebrow={`Propuestas pendientes · ${(proposals ?? []).length}`} action={lastPass ? <span className="font-mono text-[11px] text-muted" title={JSON.stringify(lastPass.stats)}>última pasada {fmtDay(lastPass.started_at).split(",")[0]} {fmtTime(lastPass.started_at)}</span> : <span className="font-mono text-[11px] text-muted">sin pasadas</span>}>
+          {p.decidido && <p className="mb-2 rounded-xl bg-ok-soft px-3 py-1 text-[12px] text-ok">Propuesta {p.decidido}. En modo semi solo cambia el estado; nadie escribe en Meta hasta la Fase 4b.</p>}
+          {p.error && <p className="mb-2 rounded-xl bg-crit-soft px-3 py-1 text-[12px] text-crit">{p.error}</p>}
+          {(proposals ?? []).length ? <ul className="flex flex-col gap-3">{((proposals ?? []) as Proposal[]).map(x => (
+            <li key={x.id} className="rounded-xl border border-line bg-paper px-3 py-2 text-[13px]">
+              <p><Chip tone="amber">{RULE_ACTION_LABEL[x.action] ?? x.action}</Chip> <b>{x.entity_name ?? "—"}</b> <span className="font-mono text-[11px] text-muted">{x.entity_level}</span></p>
+              <p className="tnum mt-1">{String(x.before_value ?? "—")} → <b>{String(x.after_value ?? "—")}</b> <span className="text-muted">· regla {x.rule_name ?? "—"}{x.expires_at && <> · expira {fmtDay(x.expires_at).split(",")[0]} {fmtTime(x.expires_at)}</>}</span></p>
+              <details className="mt-1"><summary className="cursor-pointer font-mono text-[11px] text-muted">evidencia ({x.evidence?.length ?? 0}) y candados ({x.locks?.length ?? 0})</summary>
+                <ul className="mt-1 font-mono text-[11px]">{(x.evidence ?? []).map(e => <li key={e.ref}>[{e.ref}] {e.label}: {String(e.value ?? "—")}</li>)}</ul>
+                <ul className="mt-1 text-[11px]">{(x.locks ?? []).map(l => <li key={l.lock} className={l.ok ? "text-ok" : "text-crit"}>{l.ok ? "✓" : "✕"} {LOCK_LABEL[l.lock] ?? l.lock}: {l.reason}</li>)}</ul>
+              </details>
+              <form action={decideProposal} className="mt-2 flex flex-wrap gap-2"><input type="hidden" name="id" value={x.id} /><input type="hidden" name="account" value={accountId} /><input name="reason" placeholder="Razón (obligatoria al rechazar)" className="min-w-40 flex-1 rounded-lg border border-line bg-paper px-2 py-1 text-[12px]" /><button name="decision" value="aprobada" className="rounded-xl bg-ok-soft px-3 py-1 text-[12px] text-ok">Aprobar</button><button name="decision" value="rechazada" className="rounded-xl bg-crit-soft px-3 py-1 text-[12px] text-crit">Rechazar</button></form>
+            </li>))}</ul> : <p className="text-sm text-muted">{prof ? "Sin propuestas pendientes. El estratega corre una vez al día con el día anterior cerrado; hoy solo hay reglas de candado (techo), las de acción llegan con el cuestionario de Eduardo." : "Captura el perfil de la cuenta en Configuración para que el estratega tenga candados."}</p>}
+          <div className={`mt-3 rounded-xl px-3 py-2 text-[12px] ${brake?.active ? "bg-crit-soft" : "bg-white/5"}`}>
+            {brake?.active ? (<>
+              <p className="font-semibold text-crit">⛔ Freno de emergencia activo</p>
+              <p className="text-muted">{brake.engaged_by} · {brake.engaged_at ? `${fmtDay(brake.engaged_at).split(",")[0]} ${fmtTime(brake.engaged_at)}` : ""} · {brake.engage_reason}</p>
+              {isAdmin ? <form action={releaseBrake} className="mt-1 flex gap-2"><input type="hidden" name="account" value={accountId} /><input name="reason" required placeholder="Razón de liberación (obligatoria)" className="flex-1 rounded-lg border border-line bg-paper px-2 py-1" /><button className="rounded-xl border border-line px-3 py-1">Liberar</button></form> : <p className="mt-1 text-muted">Solo un administrador puede liberarlo, con razón.</p>}
+            </>) : (<form action={engageBrake} className="flex flex-wrap items-center gap-2"><span className="text-muted">Freno de emergencia: liberado.</span><input type="hidden" name="account" value={accountId} /><input name="reason" placeholder="Razón (opcional)" className="min-w-32 flex-1 rounded-lg border border-line bg-paper px-2 py-1" /><button className="rounded-xl bg-crit-soft px-3 py-1 text-crit" title="Detiene cualquier propuesta y ejecución hasta que un administrador lo libere">Frenar cuenta</button></form>)}
+          </div>
         </Card>
       </div>
     </div>

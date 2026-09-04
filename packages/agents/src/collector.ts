@@ -7,7 +7,8 @@
  *  4. Insights diarios y por hora de Meta.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
-import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { strategistWatch, strategistPass } from "./strategist.js";
+import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
@@ -165,6 +166,7 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
 
   // 5. Techo de gasto contra el presupuesto activo y el gasto real (en cada pasada; docs/06-criterio-operacion.md)
   let ceiling: Record<string, unknown> = {};
+  let check: CeilingCheck | null = null;
   try {
     const accToday = toZoned(now, info.timezone_name).date;
     const lastClosed = new Date(`${accToday}T12:00:00Z`); lastClosed.setUTCDate(lastClosed.getUTCDate() - 1); const lastClosedDate = lastClosed.toISOString().slice(0, 10);
@@ -173,7 +175,7 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
       db.from("insights_daily").select("date,spend").eq("account_id", acc.id).eq("level", "campaign").in("date", [lastClosedDate, accToday]),
     ]);
     const sum = (d: string) => { const xs = (spendRows ?? []).filter(r => r.date === d); return xs.length ? xs.reduce((a, r) => a + Number(r.spend ?? 0), 0) : null; };
-    const check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, committedFactor: prof?.max_committed_budget_factor != null ? Number(prof.max_committed_budget_factor) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
+    check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, committedFactor: prof?.max_committed_budget_factor != null ? Number(prof.max_committed_budget_factor) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
       ents: rows.map(r => ({ id: r.id as string, level: r.level as "campaign" | "adset" | "ad", campaign_id: (r.campaign_id as string | null) ?? null, effective_status: (r.effective_status as string | null) ?? null, daily_budget_cents: (r.daily_budget as number | null) ?? null })) });
     ceiling = { ...check, last_closed: lastClosedDate };
     const mxn = (n: number) => `$${Math.round(n).toLocaleString("es-MX")}`;
@@ -186,10 +188,18 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     if (check.over_committed) await alertOnce("budget_committed", "info", `Presupuesto comprometido ${check.budget_pct}% del techo: ${mxn(check.budget_active)} en ${check.active_campaigns} campañas activas contra ${mxn(check.ceiling!)} × ${check.committed_factor} = ${mxn(check.committed_limit!)}. Gasto real del ${lastClosedDate}: ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Sin propuestas de subir presupuesto mientras siga así.`);
   } catch (e) { log(`⚠ techo ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); ceiling = { error: 1 }; }
 
-  // 6. Día sin cambios humanos → se registra explícitamente
+  // 6. Estratega: todas las pasadas vigilan (freno); solo la que llega con el día anterior cerrado propone
+  let strategist: Record<string, unknown> = {};
+  try {
+    const brake = await strategistWatch(db, { id: acc.id, name: acc.name, timezone_name: info.timezone_name }, { accountStatus: info.account_status, ceiling: check, log });
+    strategist = await strategistPass(db, { id: acc.id, name: acc.name, timezone_name: info.timezone_name }, { ceiling: check, accountStatus: info.account_status, log });
+    if (brake.length) strategist.brake = brake;
+  } catch (e) { log(`⚠ estratega ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); strategist = { error: 1 }; }
+
+  // 7. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, resolvedFromMeta, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, ceiling };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, resolvedFromMeta, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, ceiling, strategist };
 }
 
 /**
@@ -234,7 +244,8 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   const newGroupMembers = new Map(groups.map((g, i) => [gIds[i]!, g.events.map(e => e.fingerprint)]));
 
   // 2. membresía vieja del rango
-  const oldSess = await selectAll<{ id: string; actor_id: string | null; started_at: string; ended_at: string }>(() => db.from("change_sessions").select("id,actor_id,started_at,ended_at").eq("account_id", accountId).gte("started_at", iso).order("started_at"));
+  // las sesiones del agente (pasadas del estratega) no nacen de eventos: el regrupado no las toca
+  const oldSess = await selectAll<{ id: string; actor_id: string | null; started_at: string; ended_at: string }>(() => db.from("change_sessions").select("id,actor_id,started_at,ended_at").eq("account_id", accountId).neq("actor_kind", "agent").gte("started_at", iso).order("started_at"));
   const oldGroups = await selectAll<{ id: string; session_id: string | null; actor_id: string | null; started_at: string; ended_at: string }>(() => db.from("change_groups").select("id,session_id,actor_id,started_at,ended_at").eq("account_id", accountId).gte("started_at", iso).order("started_at"));
   const oldSessIds = oldSess.map(s => s.id), oldGroupIds = oldGroups.map(g => g.id);
   const groupToSession = new Map(oldGroups.map(g => [g.id, g.session_id]));

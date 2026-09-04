@@ -62,13 +62,13 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
             <Field name="max_cumulative_change_pct" label="Cambio acumulado máximo" unit="%" help="Suma de movimientos de presupuesto sobre la misma campaña dentro de la ventana de abajo. Frena el goteo de +17% cada 3 días." value={prof?.max_cumulative_change_pct ?? 35} />
             <Field name="cumulative_window_days" label="Ventana del acumulado" unit="días" help="Días sobre los que se suma el cambio acumulado." value={prof?.cumulative_window_days ?? 7} step="1" />
             <Field name="cooldown_hours" label="Espera tras un cambio" unit="horas" help="No se vuelve a tocar la misma campaña antes de este tiempo." value={prof?.cooldown_hours ?? 72} step="1" />
-            <Field name="max_actions_per_day" label="Tope de acciones por día" unit="acciones" help="Por cuenta, contando propuestas aprobadas." value={prof?.max_actions_per_day ?? 5} step="1" />
+            <Field name="max_actions_per_day" label="Tope de acciones por pasada" unit="propuestas" help="Máximo de propuestas que el estratega deja pendientes en una pasada (una al día, con el día anterior cerrado). Más del doble de esto en una pasada activa el freno." value={prof?.max_actions_per_day ?? 5} step="1" />
           </div>
         </Card>
         <Card>
           <h2 className="mb-1 text-xl font-semibold">Modo y campañas permitidas</h2>
           <div className="mb-4 flex flex-wrap gap-4 text-sm">
-            {[["off", "Apagado", "el agente solo observa y registra"], ["semi", "Semiautomático", "propone con razones; una persona aprueba o rechaza"], ["auto", "Automático", "ejecuta dentro de los candados (no disponible hasta la Fase 4b)"]].map(([v, l, h]) => (
+            {[["off", "Apagado", "el agente solo observa y registra"], ["semi", "Semiautomático", "propone con razones; una persona aprueba o rechaza"], ["auto", "Automático", "disponible en Fase 4b"]].map(([v, l, h]) => (
               <label key={v} className={`flex items-start gap-2 rounded border border-line px-3 py-2 ${v === "auto" ? "opacity-50" : ""}`}><input type="radio" name="mode" value={v} defaultChecked={(prof?.mode ?? "off") === v} disabled={v === "auto"} className="mt-1" /><span><b>{l}</b><br /><span className="text-xs text-muted">{h}</span></span></label>
             ))}
           </div>
