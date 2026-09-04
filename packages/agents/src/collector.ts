@@ -9,6 +9,7 @@
  */
 import { strategistWatch, strategistPass } from "./strategist.js";
 import { notifyPending, telegramFromEnv } from "./telegram.js";
+import { weekReport } from "./week-report.js";
 import { executeApproved } from "./executor.js";
 import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, isOwnOrder, type SentExecution, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
@@ -46,6 +47,8 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
   }
   // avisos por Telegram de lo que dejó esta corrida (críticas, resumen de la pasada, propuestas); falla aparte, nunca tira el collector
   try { await notifyPending(o.db, telegramFromEnv(), log); } catch (e) { log(`⚠ telegram: ${e instanceof Error ? e.message : String(e)}`); }
+  // reporte de primera semana en solitario (una vez, cuando se cumplan 7 días de corridas programadas sin manuales)
+  if (o.triggeredBy === "schedule") { try { const r = await weekReport(o.db, telegramFromEnv(), log); if (!r.sent) log(`  🗓 semana en solitario: ${r.reason}`); } catch (e) { log(`⚠ reporte semanal: ${e instanceof Error ? e.message : String(e)}`); } }
 }
 
 /**

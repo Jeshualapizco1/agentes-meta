@@ -11,4 +11,5 @@ export * from "./entities.js";
 export * from "./strategist.js";
 export * from "./notifications.js";
 export * from "./execution.js";
+export * from "./week-report.js";
 export * from "./evaluation.js";

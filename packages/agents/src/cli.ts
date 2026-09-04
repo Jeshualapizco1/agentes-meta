@@ -18,6 +18,11 @@ if (cmd === "collector") {
   // Manda por Telegram lo pendiente de avisar (últimos 3 días) sin correr el collector
   const { notifyPending, telegramFromEnv } = await import("./telegram.js");
   console.log(await notifyPending(dbFromEnv(), telegramFromEnv(), console.log));
+} else if (cmd === "week-report") {
+  // Reporte de primera semana en solitario; --force lo manda (o imprime, sin token) aunque no se cumplan los 7 días
+  const { weekReport } = await import("./week-report.js"); const { telegramFromEnv } = await import("./telegram.js");
+  const r = await weekReport(dbFromEnv(), telegramFromEnv(), console.log, { force: args.force === "true" });
+  console.log(r.sent ? "enviado" : r.reason);
 } else if (cmd === "regroup") {
   // Mantenimiento: rehace sesiones y grupos desde --since (ISO, default 1970) para las cuentas dadas; conserva anotaciones.
   const db = dbFromEnv();
@@ -30,5 +35,5 @@ if (cmd === "collector") {
     console.log(`✔ ${acc.name}: ${JSON.stringify(res)}`);
   }
 } else {
-  console.error("uso: tsx src/cli.ts collector [--accounts=id,id] [--days=90] [--trigger=schedule|manual] | analyst [--accounts=id,id] [--days=30] [--weekly=auto|force|off] | regroup [--accounts=id,id] [--since=ISO] | notify"); process.exit(1);
+  console.error("uso: tsx src/cli.ts collector [--accounts=id,id] [--days=90] [--trigger=schedule|manual] | analyst [--accounts=id,id] [--days=30] [--weekly=auto|force|off] | regroup [--accounts=id,id] [--since=ISO] | notify | week-report [--force=true]"); process.exit(1);
 }
