@@ -31,6 +31,7 @@ Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis compl
 - Token de Meta: token de usuario extendido (60 días), vence 2026-11-02. Renovar antes y actualizar el secreto en GitHub. Producción ideal: System User que no expira.
 - Supabase: proyecto `agentes-meta`, ref `njkyghbgquaqzzaylmwl`, plan Free. Migraciones en `packages/db/migrations/` y aplicadas vía MCP; mantener ambos en sincronía.
 - Personas que operan la cuenta (aparecen como actores): Eduardo Torres, Tavo Cortez Vera, Josué Suárez, Jeshua Acosta. Usuarios de la app: jeshualapizco@gmail.com, jeshua@aromante.mx (admin), ernesto@aromante.mx, josue@aromante.mx. Acceso por usuario y contraseña (Supabase Auth); los admins crean usuarios en `/usuarios` vía API de administración (`apps/web/lib/admin.ts`). No usar enlace mágico: el SMTP integrado limita a pocos correos por hora.
+- **Shopify:** tienda Aromante `aromante-4957.myshopify.com` (Plus, zona America/Mazatlan, IVA incluido). Ligada a Aromante 1 por `accounts.shopify_domain`. Token de app personalizada en `.env`/secreto `SHOPIFY_ADMIN_TOKEN` (permisos read_orders, read_all_orders, read_customers). `shopify_daily` guarda ventas netas sin envío con reembolsos restados en la fecha del pedido; MER = ventas netas ÷ gasto Meta de todas las cuentas que comparten tienda. Los números los arma `aggregateShopifyDays` en core (con pruebas).
 - Dayparting nativo de Meta solo funciona con presupuesto total (lifetime). Con presupuesto diario, solo se recomienda.
 - Ideas adoptadas de Testmia (ver benchmark): candados codificados, modos off/semi/auto, ventanas de evaluación 72h/7d/14d, experimentos con criterio de éxito previo, freno de emergencia manual, "cada error vuelve como regla".
 
@@ -41,11 +42,11 @@ App: https://bitacora-aromante.netlify.app (Netlify; desplegar desde la RAÍZ co
 ```bash
 pnpm install
 pnpm --filter @agentes-meta/core test                       # pruebas del core
-pnpm --filter @agentes-meta/agents collector -- --days=90   # collector (usa .env de la raíz)
+pnpm --filter @agentes-meta/agents collector -- --days=90   # collector (usa .env de la raíz; --shopifyDays=90 para backfill de Shopify)
 cd apps/web && pnpm dev -- -p 3010                          # app en http://localhost:3010
 ```
 Preferir `pnpm --filter` o `node_modules/.bin/<bin>` dentro del paquete; pnpm aísla binarios por paquete.
 El hook GateGuard pide presentar dos hechos antes del primer Bash de cada sesión: la solicitud del usuario y qué produce el comando.
 
 ## Estructura
-`packages/core` (normalize, grouping, sessions, naming, time) · `packages/meta` (Graph API) · `packages/db` (Supabase) · `packages/agents` (collector, cli) · `apps/web` (Next.js 15, Tailwind 4) · `scripts/` (backfill y preview offline) · `data/raw/` (ignorado, muestras crudas).
+`packages/core` (normalize, grouping, sessions, naming, time, shopify) · `packages/meta` (Graph API) · `packages/shopify` (Admin API) · `packages/db` (Supabase) · `packages/agents` (collector, cli) · `apps/web` (Next.js 15, Tailwind 4) · `scripts/` (backfill y preview offline) · `data/raw/` (ignorado, muestras crudas).

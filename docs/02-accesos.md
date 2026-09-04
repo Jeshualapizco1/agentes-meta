@@ -40,3 +40,25 @@ Correos de quienes entrarán: tú, Eduardo Torres y quien más opere cuentas.
 1. Genera el token en el Graph API Explorer como antes (permisos `ads_read`, `read_insights`, `business_management`).
 2. Ábrelo en https://developers.facebook.com/tools/debug/accesstoken/ y pulsa "Extender token de acceso".
 3. Copia el token extendido y pégalo en `.env` en `META_TOKEN_AROMANTE=`.
+
+## Shopify (Admin API, solo lectura)
+La tienda es **Aromante** (`aromante-4957.myshopify.com`, Shopify Plus, zona America/Mazatlan, precios con IVA incluido). El collector baja pedidos y arma `shopify_daily` (ventas netas, pedidos, clientes nuevos) para calcular MER y CAC en la vista Cuenta.
+
+Crear el token (una sola vez, lo hace el dueño de la tienda):
+1. Admin de Shopify → **Configuración → Aplicaciones y canales de venta → Desarrollar aplicaciones** (si no aparece, primero "Permitir desarrollo de aplicaciones personalizadas"; en cuentas nuevas Shopify lo manda al Dev Dashboard, el flujo es el mismo).
+2. **Crear aplicación** → nombre `agentes-meta`.
+3. **Configurar permisos de Admin API**: `read_orders`, `read_all_orders` (sin este solo se ven 60 días de historial) y `read_customers`. Nada de escritura.
+4. **Instalar aplicación** → copiar el **token de acceso de Admin API** (`shpat_…`). Se muestra una sola vez.
+5. Pegarlo en `.env` como `SHOPIFY_ADMIN_TOKEN` (nunca en el chat) y subirlo a GitHub:
+   ```bash
+   cd "/Users/jeshua/agentes Meta"
+   gh secret set SHOPIFY_ADMIN_TOKEN --body "$(grep '^SHOPIFY_ADMIN_TOKEN=' .env | cut -d= -f2 | cut -d'#' -f1 | xargs)"
+   ```
+6. Backfill de 90 días (una vez) y luego el cron lo mantiene con 14 días de traslape en cada corrida:
+   ```bash
+   pnpm --filter @agentes-meta/agents collector -- --accounts=1703313583465547 --shopifyDays=90
+   ```
+
+Qué cuenta usa la tienda: columna `accounts.shopify_domain` (hoy solo Aromante 1 Principal). Si Aromante 2 o 3 vuelven a gastar, ponerles el mismo dominio: el MER se calcula con el gasto de todas las cuentas que comparten tienda.
+
+Definiciones (aproximan a Analítica de Shopify; ver `packages/core/src/shopify.ts`): ventas netas = subtotal después de descuentos − reembolsos, sin envío; cliente nuevo = el pedido es el primero de su cliente; reembolsos atribuidos a la fecha del pedido. Las sesiones de la tienda no están en la Admin API, por eso `sessions` queda vacío.

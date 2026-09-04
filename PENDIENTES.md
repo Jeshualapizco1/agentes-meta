@@ -3,6 +3,7 @@
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
 ## Bloqueado por el usuario
+- [ ] **Token de Shopify**: crear la app personalizada (read_orders, read_all_orders, read_customers), pegar `SHOPIFY_ADMIN_TOKEN` en `.env`, subirlo con `gh secret set` y correr el backfill de 90 días. Pasos exactos en docs/02-accesos.md. Hasta entonces la vista Cuenta muestra el aviso "Shopify todavía sin datos".
 - [ ] Dar de alta a Ernesto y Josué en https://bitacora-aromante.netlify.app/usuarios con sus contraseñas.
 - [ ] Rotar el token personal de Supabase y la contraseña admin, ambos pegados en el chat.
 - [x] Perfil de Aromante 1 capturado en la app (margen 30%, equilibrio 2.5, objetivo 6, CPA 170, techo 15,000, piso 9,000, cambio máx. 17%).
@@ -10,7 +11,8 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
 
 ## Siguiente sesión
-- [ ] Shopify: ventas netas diarias, MER, clientes nuevos (conector disponible). Es lo que falta para cerrar la Fase 2.
+- [x] Shopify: ingesta en el collector (`shopify_daily`), MER/CAC/ticket promedio y gráficas en Cuenta. Falta solo el token (arriba).
+- [ ] Shopify: recompra (clientes que vuelven) y top productos por día.
 - [ ] Vista por anuncio con miniatura y "anuncios sin revisar"; vista de nomenclatura.
 - [ ] Fase 3: ventanas de evaluación 72h/7d/14d por sesión de cambios y agente semanal.
 - [x] Desplegada en Netlify: https://bitacora-aromante.netlify.app (ver docs/04-deploy-web.md).
@@ -22,6 +24,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] Verificar que el cron de GitHub Actions corrió solo a las 00:00 CDMX (revisar en /estado o `gh run list --workflow=collector`).
 
 ## Hecho (últimas sesiones)
+- 2026-09-03 (noche, 2) · Integración de Shopify: paquete cliente Admin API, agregación diaria en core (6 pruebas), ingesta en el collector con alertas propias, migración 0005 (tienda por cuenta, día cerrado), vista Cuenta con ventas netas, MER, clientes nuevos, CAC y comparación de atribución Meta vs pedidos reales; docs de accesos y cron.
 - 2026-09-03 (noche) · Pantalla Configuración por cuenta con historial de cambios; servidor local desacoplado (nohup).
 - 2026-09-03 (tarde) · Repo GitHub + cron activo y probado desde la nube; login con enlace mágico y RLS; ingesta de insights diarios con reexpresión; vista Cuenta con gasto/ROAS/CPA y cambios marcados; CLAUDE.md, ROADMAP.md, PENDIENTES.md.
 - 2026-09-03 · Análisis de viabilidad, benchmark Testmia, esquema Supabase, backfill 90 días, paquete core con 13 pruebas, collector idempotente, app web (timeline, detalle con anotaciones, estado), workflow cron, README, CLAUDE.md, ROADMAP.md.

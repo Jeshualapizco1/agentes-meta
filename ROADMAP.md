@@ -25,7 +25,8 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 ## Fase 2 · Métricas y contexto (semanas 3-4)
 - [x] Insights diarios por campaña/ad set/anuncio, últimos 14 días con reexpresión (`insights_daily` + historial)
 - [x] Insights por hora (zona de cuenta → CDMX) y pantalla Horarios
-- [ ] Ventas netas de Shopify, MER, clientes nuevos, CAC, AOV, recompra, top productos
+- [x] Ventas netas de Shopify, MER, clientes nuevos, CAC, ticket promedio (collector + vista Cuenta; falta el token para llenar datos)
+- [ ] Shopify: recompra y top productos
 - [~] Regla de día cerrado (hecha en ingesta y vista Cuenta) + insignias de madurez y cobertura en cada métrica (pendiente)
 - [x] Gráficas con los cambios marcados sobre ROAS, CPA y gasto (vista Cuenta, v1)
 - [ ] Vista por anuncio con miniatura y contador de "anuncios sin revisar"
