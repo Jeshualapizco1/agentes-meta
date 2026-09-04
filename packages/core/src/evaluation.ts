@@ -95,6 +95,6 @@ export function buildWeeklyEvidence(o: { periodEnd: string; rows: DailyRow[]; ca
     period: { start, end: o.periodEnd }, previous: { start: pStart, end: pEnd },
     totals: { week, previous, roas_pct: r1(pct(week.roas, previous.roas)), cpa_pct: r1(pct(week.cpa, previous.cpa)), spend_pct: r1(pct(week.spend, previous.spend)) },
     sessions: o.sessions, learning_resets: o.sessions.filter(s => s.resets_learning).length,
-    campaigns: { best: ranked.slice(0, 3), worst: ranked.slice(-3).reverse() }, targets: o.targets,
+    campaigns: { best: ranked.slice(0, 3), worst: ranked.slice(3).slice(-3).reverse() }, targets: o.targets,   // sin traslape entre mejores y peores
   };
 }

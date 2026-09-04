@@ -44,7 +44,7 @@ describe("buildWeeklyEvidence", () => {
   it("semana vs. previa y ranking de campañas con evidencia mínima", () => {
     const ev = buildWeeklyEvidence({ periodEnd: "2026-08-24", rows: rows(4.5, 3), campaignNames: new Map([["A", "Alfa"], ["B", "Beta"]]), sessions: [], targets: { target_roas: 6, breakeven_roas: 3.3, target_cpa: 170, daily_spend_ceiling: 15000 } });
     expect(ev.period).toEqual({ start: "2026-08-18", end: "2026-08-24" }); expect(ev.totals.week.days).toBe(7);
-    expect(ev.campaigns.best[0]!.name).toBe("Alfa"); expect(ev.campaigns.worst[0]!.name).toBe("Beta");
+    expect(ev.campaigns.best.map(c => c.name)).toEqual(["Alfa", "Beta"]); expect(ev.campaigns.worst).toEqual([]);   // con pocas campañas no se repiten en "peores"
     expect(ev.totals.spend_pct).toBe(0);
   });
 });
