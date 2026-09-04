@@ -27,7 +27,8 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
 
   return (
     <Card as="figure">
-      <figcaption className="mb-1 flex items-baseline gap-3"><span className="font-semibold">{title}</span>{unit && <span className="font-mono text-[11px] text-muted">{unit}</span>}<span className="ml-auto font-mono text-[11px] text-muted">{h ? `${h.date} · ${h.value != null ? format(h.value) : "sin dato"}${h.closed ? "" : " · día en curso"}${byDate.get(hover!) ? ` · ${byDate.get(hover!)!.length} cambio(s)` : ""}` : "pasa el cursor"}</span></figcaption>
+      <figcaption className="mb-1 flex items-baseline gap-3"><span className="font-semibold">{title}</span>{unit && <span className="font-mono text-[11px] text-muted">{unit}</span>}<span className="ml-auto font-mono text-[11px] text-muted">pasa el cursor</span></figcaption>
+      <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}
         onMouseLeave={() => setHover(null)}>
         <defs><linearGradient id={`ts-${title.replace(/\W+/g, "-")}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#a78bfa" /></linearGradient></defs>
@@ -46,6 +47,20 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
         {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
         </g>
       </svg>
+      {h && <Tip x={(xs[hover!]! / W) * 100} y={((h.value != null ? y(h.value) : padT + ih) / H) * 100} date={h.date} value={h.value != null ? format(h.value) : "sin dato"} extra={[...(h.closed ? [] : ["día en curso"]), ...(byDate.get(hover!) ? [`${byDate.get(hover!)!.length} cambio(s)`] : [])]} />}
+      </div>
     </Card>
+  );
+}
+
+/** Cuadro flotante sobre el punto: fecha en negritas, valor debajo. Se coloca arriba del punto y se voltea si no cabe. */
+export function Tip({ x, y, date, value, extra = [] }: { x: number; y: number; date: string; value: string; extra?: string[] }) {
+  const below = y < 35, right = x > 80, left = x < 20;
+  return (
+    <div className="pointer-events-none absolute z-10 rounded-xl border border-line bg-surface-solid px-3 py-2 shadow-lg" style={{ left: `${x}%`, top: `${y}%`, transform: `translate(${left ? "0" : right ? "-100%" : "-50%"}, ${below ? "14px" : "calc(-100% - 14px)"})` }}>
+      <p className="whitespace-nowrap font-mono text-[12px] font-bold text-ink">{date}</p>
+      <p className="tnum whitespace-nowrap text-lg font-bold leading-tight">{value}</p>
+      {extra.map(e => <p key={e} className="whitespace-nowrap font-mono text-[11px] text-muted">{e}</p>)}
+    </div>
   );
 }

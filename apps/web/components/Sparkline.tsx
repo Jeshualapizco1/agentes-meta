@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Tip } from "./TimeSeries";
 
 export type SparkPoint = { date: string; value: number | null; closed: boolean };
 export type SparkMarker = { date: string; resets?: boolean };
@@ -30,8 +31,8 @@ export function Sparkline({ points, markers = [], height = 64, id, fmt = "fixed2
   const last = [...points].reverse().find(p => p.value != null);
   const h = hover != null ? points[hover] : null;
   return (
-    <div>
-      <p className="tnum mb-1 h-4 font-mono text-[11px] text-muted">{h ? <>{h.date} · <b className="text-ink">{h.value != null ? format(h.value) : "sin dato"}</b>{unit && h.value != null ? ` ${unit}` : ""}{!h.closed ? " · día en curso" : ""}{changesByDay.get(h.date) ? ` · ${changesByDay.get(h.date)} cambio(s)` : ""}</> : "pasa el cursor para ver cada día"}</p>
+    <div className="relative">
+      <p className="mb-1 h-4 font-mono text-[11px] text-muted">pasa el cursor para ver cada día</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="Tendencia"
         onMouseLeave={() => setHover(null)}
         onMouseMove={e => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * W; let best = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i]! - x) < Math.abs(xs[best]! - x)) best = i; setHover(best); }}>
@@ -46,6 +47,7 @@ export function Sparkline({ points, markers = [], height = 64, id, fmt = "fixed2
         {last && <circle cx={xs[idx.get(last.date)!]} cy={y(last.value!)} r="3" fill="#a78bfa" />}
         {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={0} y2={H} stroke="var(--color-muted)" strokeWidth="1" vectorEffect="non-scaling-stroke" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
       </svg>
+      {h && <Tip x={(xs[hover!]! / W) * 100} y={20 + ((h.value != null ? y(h.value) : H - pad) / H) * 80} date={h.date} value={`${h.value != null ? format(h.value) : "sin dato"}${unit && h.value != null ? ` ${unit}` : ""}`} extra={[...(h.closed ? [] : ["día en curso"]), ...(changesByDay.get(h.date) ? [`${changesByDay.get(h.date)} cambio(s)`] : [])]} />}
     </div>
   );
 }
