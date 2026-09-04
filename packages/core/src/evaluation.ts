@@ -5,6 +5,9 @@
  *  - Estado: pending (aún no hay días después), preliminary (faltan días), mature (los N días ya pasaron).
  *  - Confianza por compras (tocado, antes+después): ≥60 alta, ≥30 media, ≥10 baja, menos = insuficiente. Un control con
  *    menos de MIN_CONTROL_PURCHASES compras deja la confianza en baja como máximo.
+ *  - Dos lecturas por ventana: (1) frente al resto de la cuenta (diff_roas_pts) y (2) la campaña tocada frente a sí misma
+ *    en los 7 días cerrados previos al cambio (self_roas_pct). El veredicto usa las dos: si coinciden, la confianza se
+ *    queda; si una es clara y la otra plana, "indicio" con tope media; si se contradicen, "mixto" con tope baja.
  *  - Salvedades (`caveats`): presupuesto compartido (un cambio de presupuesto mueve el gasto del resto: el control no es
  *    independiente), gasto del control que se movió mucho, control pequeño. El reporte las dice tal cual.
  *  - Lenguaje: "coincidió con", nunca "causó". Definiciones completas en docs/05-analista.md.
@@ -14,12 +17,20 @@ export const HORIZON_DAYS: Record<Horizon, number> = { "72h": 3, "7d": 7, "14d":
 export type DailyRow = { entity_id: string; date: string; spend: number; purchases: number; value: number };
 export interface WindowMetrics { days: number; spend: number; purchases: number; value: number; roas: number | null; cpa: number | null }
 export type Confidence = "high" | "medium" | "low" | "insufficient";
+export type Reading = "up" | "flat" | "down";
+/** agree: las dos lecturas dicen lo mismo · partial: una clara y la otra plana · mixed: se contradicen · single: solo hay una · none: ninguna */
+export type Agreement = "agree" | "partial" | "mixed" | "single" | "none";
 export interface Evaluation {
   horizon: Horizon; status: "pending" | "preliminary" | "mature"; starts_at: string; ends_at: string;
   treatment: { before: WindowMetrics; after: WindowMetrics }; control: { before: WindowMetrics; after: WindowMetrics } | null;
-  delta: { roas_pct: number | null; cpa_pct: number | null; spend_pct: number | null; control_roas_pct: number | null; control_cpa_pct: number | null; control_spend_pct: number | null; diff_roas_pts: number | null; diff_cpa_pts: number | null };
+  /** Segunda referencia: la campaña tocada en los BASELINE_DAYS días cerrados previos al cambio. */
+  baseline: WindowMetrics;
+  delta: { roas_pct: number | null; cpa_pct: number | null; spend_pct: number | null; control_roas_pct: number | null; control_cpa_pct: number | null; control_spend_pct: number | null; diff_roas_pts: number | null; diff_cpa_pts: number | null; self_roas_pct: number | null; self_cpa_pct: number | null };
+  /** Lectura combinada (solo cuando las lecturas coinciden o hay una sola). */
+  reading: Reading | null; agreement: Agreement;
   confidence: Confidence; verdict: string; caveats: string[];
 }
+export const BASELINE_DAYS = 7;           // segunda referencia: la campaña tocada contra sí misma en los 7 días cerrados previos
 /** Umbrales de la evaluación (documentados en docs/05-analista.md). */
 export const THRESHOLD_PTS = 10;           // puntos porcentuales de variación de ROAS frente al control para hablar de mejora o deterioro
 export const MIN_PURCHASES = { low: 10, medium: 30, high: 60 };
@@ -58,11 +69,23 @@ export function evaluateChange(o: { changeDate: string; campaignIds: string[]; r
   const roas_pct = pct(treatment.after.roas, treatment.before.roas), cpa_pct = pct(treatment.after.cpa, treatment.before.cpa), spend_pct = pct(treatment.after.spend, treatment.before.spend);
   const control_roas_pct = hasControl ? pct(control!.after.roas, control!.before.roas) : null, control_cpa_pct = hasControl ? pct(control!.after.cpa, control!.before.cpa) : null;
   const control_spend_pct = hasControl ? pct(control!.after.spend, control!.before.spend) : null;
+  // segunda referencia: lo tocado contra sí mismo en los 7 días cerrados previos (independiente del horizonte)
+  const baseline = metrics(rows, addDays(o.changeDate, -BASELINE_DAYS), beforeTo, ids);
+  const self_roas_pct = pct(treatment.after.roas, baseline.roas), self_cpa_pct = pct(treatment.after.cpa, baseline.cpa);
   const diff_roas_pts = roas_pct != null && control_roas_pct != null ? roas_pct - control_roas_pct : null;
   const diff_cpa_pts = cpa_pct != null && control_cpa_pct != null ? cpa_pct - control_cpa_pct : null;
   const purchases = treatment.before.purchases + treatment.after.purchases;
   let confidence: Confidence = status === "pending" || treatment.after.spend === 0 || treatment.before.spend === 0 ? "insufficient" : purchases >= MIN_PURCHASES.high ? "high" : purchases >= MIN_PURCHASES.medium ? "medium" : purchases >= MIN_PURCHASES.low ? "low" : "insufficient";
   if (confidence === "high" && status === "preliminary") confidence = "medium";
+  // las dos lecturas y su acuerdo
+  const cat = (v: number | null): Reading | null => (v == null ? null : v >= THRESHOLD_PTS ? "up" : v <= -THRESHOLD_PTS ? "down" : "flat");
+  const vsRest = hasControl ? cat(diff_roas_pts) : null, vsSelf = cat(self_roas_pct);
+  const agreement: Agreement = vsRest && vsSelf ? (vsRest === vsSelf ? "agree" : vsRest === "flat" || vsSelf === "flat" ? "partial" : "mixed") : vsRest || vsSelf ? "single" : "none";
+  const reading: Reading | null = agreement === "agree" ? vsRest : agreement === "single" ? (vsRest ?? vsSelf) : null;
+  if (confidence !== "insufficient") {
+    if (agreement === "mixed" && confidence !== "low") confidence = "low";
+    else if (agreement === "partial" && confidence === "high") confidence = "medium";
+  }
   // salvedades: el control no es independiente ni estable en todos los casos
   const caveats: string[] = [];
   const s = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
@@ -75,29 +98,41 @@ export function evaluateChange(o: { changeDate: string; campaignIds: string[]; r
     if (o.kind === "budget") caveats.push(`Presupuesto compartido: al mover el presupuesto de una campaña cambia el gasto del resto de la cuenta${control_spend_pct != null ? ` (gasto del control ${s(control_spend_pct)})` : ""}, así que el control no es independiente.`);
     else if (control_spend_pct != null && Math.abs(control_spend_pct) >= CONTROL_SPEND_SHIFT_PCT) caveats.push(`El gasto del resto de la cuenta se movió ${s(control_spend_pct)} en la ventana: el control no fue estable.`);
   }
-  const verdict = buildVerdict({ status, confidence, roas_pct, cpa_pct, control_roas_pct, diff_roas_pts, hasControl, N, closedAfterDays });
-  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, treatment, control, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts) }, confidence, verdict, caveats };
+  const verdict = buildVerdict({ status, confidence, roas_pct, cpa_pct, control_roas_pct, diff_roas_pts, self_roas_pct, vsRest, vsSelf, agreement, N, closedAfterDays });
+  return { horizon: o.horizon, status, starts_at: afterFrom, ends_at: afterToPlanned, treatment, control, baseline, delta: { roas_pct: r1(roas_pct), cpa_pct: r1(cpa_pct), spend_pct: r1(spend_pct), control_roas_pct: r1(control_roas_pct), control_cpa_pct: r1(control_cpa_pct), control_spend_pct: r1(control_spend_pct), diff_roas_pts: r1(diff_roas_pts), diff_cpa_pts: r1(diff_cpa_pts), self_roas_pct: r1(self_roas_pct), self_cpa_pct: r1(self_cpa_pct) }, reading, agreement, confidence, verdict, caveats };
 }
 
-function buildVerdict(x: { status: Evaluation["status"]; confidence: Confidence; roas_pct: number | null; cpa_pct: number | null; control_roas_pct: number | null; diff_roas_pts: number | null; hasControl: boolean; N: number; closedAfterDays: number }): string {
+function buildVerdict(x: { status: Evaluation["status"]; confidence: Confidence; roas_pct: number | null; cpa_pct: number | null; control_roas_pct: number | null; diff_roas_pts: number | null; self_roas_pct: number | null; vsRest: Reading | null; vsSelf: Reading | null; agreement: Agreement; N: number; closedAfterDays: number }): string {
   const s = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)}%`;
   if (x.status === "pending") return `Todavía no hay días completos después del cambio (ventana de ${x.N} días).`;
   if (x.confidence === "insufficient") return `Sin evidencia suficiente: pocas compras o sin gasto en la ventana de ${x.N} días${x.status === "preliminary" ? ` (van ${x.closedAfterDays} de ${x.N} días)` : ""}.`;
   const prelim = x.status === "preliminary" ? ` Preliminar: van ${x.closedAfterDays} de ${x.N} días.` : "";
-  if (x.hasControl && x.diff_roas_pts != null && x.roas_pct != null && x.control_roas_pct != null) {
-    const rel = x.diff_roas_pts >= THRESHOLD_PTS ? "una mejora" : x.diff_roas_pts <= -THRESHOLD_PTS ? "un deterioro" : null;
-    if (rel) return `Coincidió con ${rel} de ROAS: ${s(x.roas_pct)} en lo tocado frente a ${s(x.control_roas_pct)} en el resto de la cuenta${x.cpa_pct != null ? `; CPA ${s(x.cpa_pct)}` : ""}.${prelim}`;
-    return `Sin cambio claro frente al resto de la cuenta: ROAS ${s(x.roas_pct)} en lo tocado, ${s(x.control_roas_pct)} en el resto (umbral ±${THRESHOLD_PTS} pts).${prelim}`;
+  const cpa = x.cpa_pct != null ? `; CPA ${s(x.cpa_pct)}` : "";
+  const rel = (r: Reading) => (r === "up" ? "una mejora" : r === "down" ? "un deterioro" : "sin cambio claro");
+  const pts = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(0)} pts`;
+  const restTxt = `${s(x.roas_pct ?? 0)} en lo tocado frente a ${s(x.control_roas_pct ?? 0)} en el resto de la cuenta (${pts(x.diff_roas_pts ?? 0)})`;
+  const selfTxt = `${s(x.self_roas_pct ?? 0)} frente a su propia semana previa`;
+  switch (x.agreement) {
+    case "agree":
+      if (x.vsRest === "flat") return `Sin cambio claro: ROAS ${restTxt} y ${selfTxt} (umbral ±${THRESHOLD_PTS} pts).${prelim}`;
+      return `Coincidió con ${rel(x.vsRest!)} de ROAS: ${restTxt} y ${selfTxt}${cpa}.${prelim}`;
+    case "mixed":
+      return `Mixto: frente al resto de la cuenta ${rel(x.vsRest!)} (${restTxt}), pero frente a su propia semana previa ${rel(x.vsSelf!)} (${s(x.self_roas_pct ?? 0)}). Las dos lecturas se contradicen; no se concluye.${prelim}`;
+    case "partial": {
+      const clearIsRest = x.vsRest !== "flat";
+      const clear = clearIsRest ? x.vsRest! : x.vsSelf!;
+      return `Indicio de ${clear === "up" ? "mejora" : "deterioro"} ${clearIsRest ? `frente al resto de la cuenta (${restTxt})` : `frente a su propia semana previa (${s(x.self_roas_pct ?? 0)})`}, pero sin cambio claro ${clearIsRest ? `frente a su semana previa (${s(x.self_roas_pct ?? 0)})` : `frente al resto de la cuenta (${pts(x.diff_roas_pts ?? 0)})`}.${prelim}`;
+    }
+    case "single":
+      if (x.vsRest) return x.vsRest === "flat" ? `Sin cambio claro frente al resto de la cuenta: ROAS ${restTxt}; sin semana previa comparable.${prelim}` : `Coincidió con ${rel(x.vsRest)} de ROAS: ${restTxt}; sin semana previa comparable${cpa}.${prelim}`;
+      return x.vsSelf === "flat" ? `Sin cambio claro de ROAS (${selfTxt}); sin control: se tocó toda la cuenta.${prelim}` : `Coincidió con ${rel(x.vsSelf!)} de ROAS de ${selfTxt} (sin control: se tocó toda la cuenta)${cpa}.${prelim}`;
+    default:
+      return `Sin ROAS comparable en la ventana de ${x.N} días.${prelim}`;
   }
-  if (x.roas_pct != null) {
-    const rel = x.roas_pct >= THRESHOLD_PTS ? "una mejora" : x.roas_pct <= -THRESHOLD_PTS ? "un deterioro" : null;
-    return rel ? `Coincidió con ${rel} de ROAS de ${s(x.roas_pct)} respecto a los ${x.N} días previos (sin control: se tocó toda la cuenta).${prelim}` : `Sin cambio claro de ROAS (${s(x.roas_pct)}) respecto a los ${x.N} días previos.${prelim}`;
-  }
-  return `Sin ROAS comparable en la ventana de ${x.N} días.${prelim}`;
 }
 
 /** Paquete de evidencia semanal (determinista): totales de la semana vs. la previa, sesiones con veredicto, mejores y peores campañas. */
-export interface WeeklySession { ref?: string; id: string; started_at: string; actor_name: string; summary: string; resets_learning: boolean; kind: string; evaluations: Pick<Evaluation, "horizon" | "status" | "confidence" | "verdict" | "delta" | "caveats">[] }
+export interface WeeklySession { ref?: string; id: string; started_at: string; actor_name: string; summary: string; resets_learning: boolean; kind: string; evaluations: Pick<Evaluation, "horizon" | "status" | "confidence" | "verdict" | "delta" | "caveats" | "agreement" | "reading">[] }
 /** Fila de campaña del ranking semanal; `ref` (C1, C2…) es la referencia que la narrativa debe citar. */
 export interface WeeklyCampaign { ref: string; id: string; name: string; spend: number; purchases: number; roas: number }
 export interface WeeklyEvidence {

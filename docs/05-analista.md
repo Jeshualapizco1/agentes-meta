@@ -69,10 +69,57 @@ Ejemplos:
 | 3.0 → 4.5 | 3.0 → 4.5 | +50 % | +50 % | 0 | sin cambio claro (subió toda la cuenta) |
 | 3.0 → 2.4 | 3.0 → 3.0 | −20 % | 0 % | −20 | coincidió con un deterioro |
 
-**Umbral (`THRESHOLD_PTS = 10`):** `diff_roas_pts ≥ +10` → "coincidió con una mejora"; `≤ −10` → "coincidió con un
-deterioro"; entre ambos → "sin cambio claro frente al resto de la cuenta". Sin control, el mismo umbral se aplica a
-`roas_pct` a secas y el veredicto aclara "sin control: se tocó toda la cuenta". El umbral es una convención operativa,
-no una prueba de significancia estadística (ver §7).
+**Umbral (`THRESHOLD_PTS = 10`):** una lectura es "mejora" si su valor es `≥ +10`, "deterioro" si es `≤ −10` y "plana"
+entre ambos. El umbral es una convención operativa, no una prueba de significancia estadística (ver §7).
+
+### 4b. Segunda referencia: la campaña contra sí misma
+
+En Aromante 1 el resto de la cuenta **no es un control independiente**: hay una campaña dominante en CBO y mover su
+presupuesto mueve el gasto de las demás (en la primera corrida real, 70 de 144 ventanas llevaban la salvedad de
+presupuesto compartido o control inestable; eso no es ruido, es la cuenta). Por eso cada ventana guarda **dos lecturas**:
+
+| Lectura | Fórmula | Campo |
+|---|---|---|
+| Frente al resto de la cuenta | `roas_pct − control_roas_pct` | `delta.diff_roas_pts` (puntos) |
+| Frente a sí misma | `(ROAS_después − ROAS_base) / ROAS_base × 100`, donde **base** = las campañas tocadas en los **7 días cerrados previos** al cambio (`D−7` … `D−1`), sea cual sea el horizonte | `delta.self_roas_pct` (%), métricas en `baseline` |
+
+La base de 7 días es fija: para la ventana de 7 días coincide con el "antes"; para la de 72 h y la de 14 días es una
+referencia distinta (una semana completa, que cubre los siete días de la semana).
+
+Cada lectura se clasifica con el umbral de ±10 en **mejora / plana / deterioro**, y el veredicto sale del cruce
+(`agreement`):
+
+| Resto de la cuenta | Sí misma | `agreement` | Veredicto | Confianza |
+|---|---|---|---|---|
+| mejora | mejora | `agree` | "Coincidió con una mejora…" (`reading = up`) | la calculada en §5 |
+| deterioro | deterioro | `agree` | "Coincidió con un deterioro…" (`reading = down`) | la calculada |
+| plana | plana | `agree` | "Sin cambio claro…" | la calculada |
+| clara | plana (o al revés) | `partial` | "Indicio de mejora/deterioro frente a X, pero sin cambio claro frente a Y" | **media como máximo** |
+| mejora | deterioro (o al revés) | `mixed` | "Mixto: … Las dos lecturas se contradicen; no se concluye." | **baja como máximo** |
+| solo una disponible | | `single` | la lectura disponible, diciendo que falta la otra ("sin control: se tocó toda la cuenta" o "sin semana previa comparable") | la calculada |
+| ninguna | | `none` | "Sin ROAS comparable" | insuficiente |
+
+La confianza **solo se queda alta cuando las dos lecturas coinciden**. En `/analisis` solo se pinta verde o rojo cuando
+`reading` es `up` o `down`; indicio y mixto van en ámbar.
+
+**Ejemplo real de la corrida del 2026-09-04** (sesión de Eduardo Torres del 2026-08-26 10:29 CDMX: presupuesto diario
+$4,600 → $5,200, +13 %, en «CBO | PROMO ESCALONADA»; ventana de 72 h, madura):
+
+| | Antes (3 días) | Después (3 días) | Base propia (7 días) |
+|---|---|---|---|
+| Tocado: ROAS | 4.50 | 4.55 | **6.50** |
+| Tocado: compras | 43 | 50 | 132 |
+| Resto: ROAS | 3.44 | 3.01 | |
+
+- Frente al resto: tocado +1 %, resto −12 % → **+14 pts: mejora**.
+- Frente a sí misma: 4.55 contra 6.50 → **−30 %: deterioro**. La campaña ya venía cayendo desde la semana previa; la
+  ventana de 3 días "antes" empezó cuando ya estaba en 4.50 y no lo veía.
+- Resultado: `agreement = mixed`, confianza **baja**, veredicto "Mixto: frente al resto de la cuenta una mejora (+1 % en lo
+  tocado frente a −12 % en el resto, +14 pts), pero frente a su propia semana previa un deterioro (−30 %). Las dos lecturas
+  se contradicen; no se concluye.", con la salvedad "Presupuesto compartido … (gasto del control −4 %)".
+
+Con una sola lectura este cambio habría salido como "mejora"; con las dos, queda en revisión. En la misma corrida: 48
+ventanas `agree`, 22 `partial`, 2 `mixed`, 48 `single` (sesiones sin campaña identificada) y 24 `none`.
 
 ## 5. Compras suficientes y confianza
 
@@ -88,6 +135,7 @@ La confianza sale de las **compras del tratamiento sumando antes y después** (`
 Reglas adicionales:
 - Ventana `pending`, o gasto 0 en el antes o en el después → `insufficient`.
 - Ventana `preliminary` con confianza alta → se rebaja a media (todavía faltan días).
+- Lecturas en `partial` → media como máximo; en `mixed` → baja como máximo (§4b).
 - **Control pequeño:** si el resto de la cuenta suma menos de `MIN_CONTROL_PURCHASES = 10` compras (antes + después), la
   confianza se queda en **baja como máximo** aunque el tratamiento tenga muchas compras, y la ventana lleva la salvedad
   "Control pequeño: … la comparación vale poco". Un control con pocas compras tiene un ROAS muy ruidoso, y la diferencia en
@@ -149,7 +197,7 @@ recibe el modelo (`packages/agents/src/narrative.ts`):
   escribe. El modelo no suma, resta, promedia ni redondea: si el número no está en el paquete, no existe.
 - Se habla de correlación ("coincidió con"), nunca de causa.
 - Se respeta el estado y la confianza de cada ventana; lo preliminar se presenta como preliminar; las salvedades se
-  dicen junto al veredicto.
+  dicen junto al veredicto. Un `agreement = mixed` nunca se presenta como mejora ni deterioro.
 - Sin `ANTHROPIC_API_KEY`, el analista guarda la evidencia y los veredictos y deja `narrative` en nulo; la siguiente corrida
   con llave completa hasta tres reportes pendientes.
 
@@ -164,5 +212,5 @@ tal cual, el reporte está mal y se corrige el prompt, no la evidencia.
 | Paquete de evidencia semanal y referencias | `packages/core/src/evaluation.ts` (`buildWeeklyEvidence`) |
 | Carga de datos, guardado y corrida | `packages/agents/src/analyst.ts` |
 | Narrativa con Claude | `packages/agents/src/narrative.ts` |
-| Tablas | `evaluation_windows` (una fila por sesión y horizonte, migraciones 0009 y 0010), `analyses` (una por cuenta y periodo) |
+| Tablas | `evaluation_windows` (una fila por sesión y horizonte; migraciones 0009, 0010 salvedades, 0011 `baseline`, `agreement`, `reading`), `analyses` (una por cuenta y periodo) |
 | Pantalla | `apps/web/app/analisis/page.tsx` |

@@ -33,7 +33,7 @@ export async function evaluateSessions(db: Db, acc: Acc, sessions: SessionRow[],
     const changeDate = toZoned(new Date(s.started_at), acc.timezone_name).date;
     const evs = HORIZONS.map(h => evaluateChange({ changeDate, campaignIds: s.campaign_ids ?? [], rows, horizon: h, today, kind: s.kind }));
     out.set(s.id, evs);
-    for (const e of evs) upserts.push({ session_id: s.id, account_id: acc.id, horizon: e.horizon, starts_at: `${e.starts_at}T00:00:00Z`, ends_at: `${e.ends_at}T23:59:59Z`, status: e.status, metrics_before: e.treatment.before, metrics_after: e.treatment.after, control: e.control, delta: e.delta, confidence: e.confidence, verdict: e.verdict, caveats: e.caveats, computed_at: new Date().toISOString() });
+    for (const e of evs) upserts.push({ session_id: s.id, account_id: acc.id, horizon: e.horizon, starts_at: `${e.starts_at}T00:00:00Z`, ends_at: `${e.ends_at}T23:59:59Z`, status: e.status, metrics_before: e.treatment.before, metrics_after: e.treatment.after, control: e.control, delta: e.delta, confidence: e.confidence, verdict: e.verdict, caveats: e.caveats, baseline: e.baseline, agreement: e.agreement, reading: e.reading, computed_at: new Date().toISOString() });
   }
   if (upserts.length) await upsertChunks(db, "evaluation_windows", upserts, "session_id,horizon");
   return out;
@@ -49,7 +49,7 @@ export async function buildWeekly(db: Db, acc: Acc, periodEnd: string): Promise<
     db.from("account_profiles").select("target_roas,breakeven_roas,target_cpa,daily_spend_ceiling").eq("account_id", acc.id).maybeSingle(),
   ]);
   const evals = await evaluateSessions(db, acc, (sessions ?? []) as SessionRow[], rows, addDays(periodEnd, 1));
-  const weeklySessions: WeeklySession[] = ((sessions ?? []) as SessionRow[]).map(s => ({ id: s.id, started_at: s.started_at, actor_name: s.actor_name, summary: s.summary, resets_learning: s.resets_learning, kind: s.kind, evaluations: (evals.get(s.id) ?? []).map(e => ({ horizon: e.horizon, status: e.status, confidence: e.confidence, verdict: e.verdict, delta: e.delta, caveats: e.caveats })) }));
+  const weeklySessions: WeeklySession[] = ((sessions ?? []) as SessionRow[]).map(s => ({ id: s.id, started_at: s.started_at, actor_name: s.actor_name, summary: s.summary, resets_learning: s.resets_learning, kind: s.kind, evaluations: (evals.get(s.id) ?? []).map(e => ({ horizon: e.horizon, status: e.status, confidence: e.confidence, verdict: e.verdict, delta: e.delta, caveats: e.caveats, agreement: e.agreement, reading: e.reading })) }));
   return buildWeeklyEvidence({ periodEnd, rows, campaignNames: new Map((camps ?? []).map(c => [c.id as string, c.name as string])), sessions: weeklySessions, targets: { target_roas: num(prof?.target_roas), breakeven_roas: num(prof?.breakeven_roas), target_cpa: num(prof?.target_cpa), daily_spend_ceiling: num(prof?.daily_spend_ceiling) } });
 }
 

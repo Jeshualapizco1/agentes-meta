@@ -9,15 +9,14 @@ export const dynamic = "force-dynamic";
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
 const H_LABEL: Record<string, string> = { "72h": "72 h", "7d": "7 días", "14d": "14 días" };
 const CONF: Record<string, string> = { high: "confianza alta", medium: "confianza media", low: "confianza baja", insufficient: "sin evidencia" };
-type Win = { session_id: string; horizon: string; status: string; confidence: string | null; verdict: string | null; caveats: string[] | null; delta: { roas_pct: number | null; control_roas_pct: number | null; cpa_pct: number | null } | null };
+type Win = { session_id: string; horizon: string; status: string; confidence: string | null; verdict: string | null; caveats: string[] | null; agreement: string | null; reading: string | null; delta: { roas_pct: number | null; control_roas_pct: number | null; cpa_pct: number | null } | null };
 type Ev = { period: { start: string; end: string }; totals: { week: { spend: number; purchases: number; roas: number | null; cpa: number | null }; previous: { spend: number; purchases: number; roas: number | null; cpa: number | null }; roas_pct: number | null; cpa_pct: number | null; spend_pct: number | null }; sessions: { id: string; summary: string; actor_name: string; evaluations: { horizon: string; status: string; confidence: string; verdict: string }[] }[]; campaigns: { best: { name: string; roas: number; spend: number; purchases: number }[]; worst: { name: string; roas: number; spend: number; purchases: number }[] } };
 
 function tone(w: Win): "ok" | "crit" | "amber" | "neutral" {
   if (w.status === "pending" || w.confidence === "insufficient") return "neutral";
-  const d = w.delta?.roas_pct, c = w.delta?.control_roas_pct;
-  const diff = d != null && c != null ? d - c : d;
-  if (diff == null) return "neutral";
-  return diff >= 10 ? "ok" : diff <= -10 ? "crit" : "amber";
+  // solo se colorea como mejora o deterioro cuando las dos lecturas (resto de la cuenta y semana previa propia) coinciden
+  if (w.reading === "up") return "ok"; if (w.reading === "down") return "crit";
+  return "amber";
 }
 
 export default async function Analisis({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -30,7 +29,7 @@ export default async function Analisis({ searchParams }: { searchParams: Promise
     sb.from("agent_runs").select("started_at,status,stats").eq("agent", "analyst").eq("account_id", accountId).order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const ids = (sessions ?? []).map(s => s.id);
-  const { data: wins } = ids.length ? await sb.from("evaluation_windows").select("session_id,horizon,status,confidence,verdict,caveats,delta").in("session_id", ids) : { data: [] as Win[] };
+  const { data: wins } = ids.length ? await sb.from("evaluation_windows").select("session_id,horizon,status,confidence,verdict,caveats,agreement,reading,delta").in("session_id", ids) : { data: [] as Win[] };
   const byS = new Map<string, Win[]>(); for (const w of (wins ?? []) as Win[]) byS.set(w.session_id, [...(byS.get(w.session_id) ?? []), w]);
   const acc = (accounts ?? []).find(a => a.id === accountId);
   const latest = reports?.[0];
@@ -45,7 +44,7 @@ export default async function Analisis({ searchParams }: { searchParams: Promise
         <form action={forceWeekly}><input type="hidden" name="account" value={accountId} /><button className="rounded-xl border border-line px-3 py-1 text-sm hover:text-ink" title="Recalcula las ventanas y guarda el reporte del periodo que termina ayer">Forzar análisis</button></form>
       </div>
       {p.forzado && <p className="rounded-xl bg-ok-soft px-3 py-2 text-sm text-ok">Análisis guardado con la evidencia de hoy. La narrativa la redacta Claude en la siguiente corrida del analista (cada 6 h) si hay llave configurada.</p>}
-      <p className="max-w-4xl text-sm text-muted">Cada sesión mayor de una persona se evalúa a 72 h, 7 y 14 días: las campañas tocadas contra el resto de la cuenta, antes contra después, solo con días completos. Se dice "coincidió con", nunca "causó". <Chip tone="ok">mejora ≥ +10 pts vs. resto</Chip> <Chip tone="crit">deterioro ≤ −10 pts</Chip> <Chip tone="amber">sin cambio claro</Chip> <Chip tone="neutral">pendiente o sin evidencia</Chip></p>
+      <p className="max-w-4xl text-sm text-muted">Cada sesión mayor de una persona se evalúa a 72 h, 7 y 14 días: las campañas tocadas contra el resto de la cuenta, antes contra después, solo con días completos. Se dice "coincidió con", nunca "causó". Dos lecturas por ventana: frente al resto de la cuenta y frente a la propia semana previa de la campaña. <Chip tone="ok">mejora: las dos ≥ +10 pts</Chip> <Chip tone="crit">deterioro: las dos ≤ −10 pts</Chip> <Chip tone="amber">sin cambio claro, indicio o mixto (se contradicen)</Chip> <Chip tone="neutral">pendiente o sin evidencia</Chip> · Definiciones en docs/05-analista.md.</p>
 
       <Card hero eyebrow={latest ? `Reporte semanal · ${latest.period_start} a ${latest.period_end} · ${latest.model ? `redactado por ${latest.model}` : "solo evidencia, sin narrativa todavía"}` : "Reporte semanal"} action={reports && reports.length > 1 ? <span className="font-mono text-[11px] text-muted">{reports.length} reportes</span> : undefined}>
         {latest && ev ? (

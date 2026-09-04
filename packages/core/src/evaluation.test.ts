@@ -20,10 +20,25 @@ describe("evaluateChange", () => {
     expect(e.treatment.after.roas).toBeCloseTo(4.5); expect(e.control!.after.roas).toBeCloseTo(3);
     expect(e.delta.roas_pct).toBe(50); expect(e.delta.control_roas_pct).toBe(0); expect(e.delta.diff_roas_pts).toBe(50);
     expect(e.verdict).toMatch(/^Coincidió con una mejora/); expect(e.verdict).not.toMatch(/caus/);
+    expect(e.delta.self_roas_pct).toBe(50); expect(e.agreement).toBe("agree"); expect(e.reading).toBe("up"); expect(e.baseline.days).toBe(7);
   });
-  it("si toda la cuenta sube igual, no se le atribuye al cambio", () => {
+  it("mixto: frente al resto deterioro pero frente a sí misma mejora → no se concluye y la confianza baja a 'low'", () => {
+    // A 3 → 4.5 (+50 %); B 3 → 6 (+100 %): frente al resto −50 pts (deterioro), frente a su semana previa +50 % (mejora)
+    const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(4.5, 6), horizon: "7d", today: "2026-08-25" });
+    expect(e.agreement).toBe("mixed"); expect(e.reading).toBeNull(); expect(e.confidence).toBe("low");
+    expect(e.verdict).toMatch(/^Mixto: frente al resto de la cuenta un deterioro/); expect(e.verdict).toMatch(/se contradicen/);
+  });
+  it("parcial: claro frente al resto pero plano frente a sí misma → 'indicio' y la confianza no pasa de media", () => {
+    // A 3 → 3.2 (+6.7 %, plano); B 3 → 2.4 (−20 %): frente al resto +26.7 pts
+    const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(3.2, 2.4), horizon: "7d", today: "2026-08-25" });
+    expect(e.agreement).toBe("partial"); expect(e.confidence).toBe("medium");
+    expect(e.verdict).toMatch(/^Indicio de mejora frente al resto de la cuenta/); expect(e.verdict).toMatch(/sin cambio claro frente a su semana previa/);
+  });
+  it("si toda la cuenta sube igual, no se concluye: frente a sí misma mejora, frente al resto plano → indicio, no mejora", () => {
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(4.5, 4.5), horizon: "7d", today: "2026-08-25" });
-    expect(e.delta.diff_roas_pts).toBe(0); expect(e.verdict).toMatch(/^Sin cambio claro/);
+    expect(e.delta.diff_roas_pts).toBe(0); expect(e.delta.self_roas_pct).toBe(50);
+    expect(e.agreement).toBe("partial"); expect(e.reading).toBeNull(); expect(e.confidence).toBe("medium");
+    expect(e.verdict).toMatch(/^Indicio de mejora frente a su propia semana previa/); expect(e.verdict).toMatch(/sin cambio claro frente al resto/);
   });
   it("deterioro y confianza por compras", () => {
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: ["A"], rows: rows(2, 3), horizon: "14d", today: "2026-08-25" });
@@ -51,7 +66,7 @@ describe("evaluateChange", () => {
   });
   it("sin campañas identificadas se evalúa toda la cuenta sin control", () => {
     const e = evaluateChange({ changeDate: "2026-08-10", campaignIds: [], rows: rows(4.5, 4.5), horizon: "7d", today: "2026-08-25" });
-    expect(e.control).toBeNull(); expect(e.verdict).toMatch(/sin control/);
+    expect(e.control).toBeNull(); expect(e.verdict).toMatch(/sin control/); expect(e.agreement).toBe("single"); expect(e.reading).toBe("up");
   });
 });
 
