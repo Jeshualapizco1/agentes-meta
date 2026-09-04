@@ -66,7 +66,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:auto-rows-min">
         <Card hero span={8} rows={2} eyebrow="ROAS · últimos 7 días cerrados (Meta)" action={<a href={`/cuenta?account=${accountId}`} className="text-sm text-meta hover:underline">ver Cuenta →</a>}>
           <Kpi hero label="" value={roas7} prev={roasP} format={v => v.toFixed(2)} target={prof?.target_roas ? { value: Number(prof.target_roas), label: `ROAS ${Number(prof.target_roas).toFixed(2)}` } : undefined} hint={prof?.breakeven_roas ? `equilibrio ${Number(prof.breakeven_roas).toFixed(2)}` : undefined}>
-            <Sparkline id="hoy-roas" points={spark} markers={markers} height={96} />
+            <Sparkline id="hoy-roas" points={spark} markers={markers} height={96} fmt="fixed2" unit="ROAS" />
             <p className="mt-1 font-mono text-[11px] text-muted">14 días · cada punto es una sesión de cambios de una persona · <span className="text-amber">ámbar ↻</span> reinicia aprendizaje · la franja ámbar es el día en curso: se muestra, no se juzga</p>
           </Kpi>
         </Card>
