@@ -5,7 +5,6 @@ Bitácora inteligente de Meta Ads para Aromante: qué cambió, quién, cuándo y
 ## Estructura
 - `packages/core`   normalización de eventos, grupos, sesiones, parser de nomenclatura, zonas horarias (con pruebas)
 - `packages/meta`   cliente de Graph API (paginación, reintentos, timeouts)
-- `packages/shopify` cliente de la Admin API de Shopify (pedidos → ventas netas, clientes nuevos)
 - `packages/db`     cliente de Supabase y utilidades
 - `packages/agents` Agente 1 · collector (`pnpm collector`)
 - `apps/web`        app visual (Next.js): bitácora, detalle de sesión con anotaciones, estado del sistema

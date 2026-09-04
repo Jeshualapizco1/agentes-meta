@@ -4,5 +4,4 @@ export * from "./grouping.js";
 export * from "./naming.js";
 export * from "./time.js";
 export * from "./sessions.js";
-export * from "./shopify.js";
 export * from "./ids.js";

@@ -22,8 +22,6 @@ jobs:
         env:
           META_TOKEN_AROMANTE: ${{ secrets.META_TOKEN_AROMANTE }}
           META_API_VERSION: v23.0
-          SHOPIFY_STORE_DOMAIN: aromante-4957.myshopify.com
-          SHOPIFY_ADMIN_TOKEN: ${{ secrets.SHOPIFY_ADMIN_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |

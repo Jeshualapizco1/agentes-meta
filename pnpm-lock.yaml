@@ -69,9 +69,6 @@ importers:
       '@agentes-meta/meta':
         specifier: workspace:*
         version: link:../meta
-      '@agentes-meta/shopify':
-        specifier: workspace:*
-        version: link:../shopify
 
   packages/core: {}
 
@@ -86,8 +83,6 @@ importers:
       '@agentes-meta/core':
         specifier: workspace:*
         version: link:../core
-
-  packages/shopify: {}
 
 packages:
 

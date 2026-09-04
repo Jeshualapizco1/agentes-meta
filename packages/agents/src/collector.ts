@@ -4,23 +4,21 @@
  *  2. Baja activities nuevas (con traslape) y las inserta por huella (fingerprint).
  *  3. Reagrupa eventos → grupos → sesiones desde un corte con margen. IDs deterministas + upsert: una sesión conserva su ID
  *     si no cambió su inicio; si cambió, las anotaciones se re-enlazan a la nueva antes de borrar la vieja.
- *  4. Insights diarios y por hora de Meta; ventas de Shopify si la cuenta tiene tienda y hay token.
+ *  4. Insights diarios y por hora de Meta.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
 import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
-import { ShopifyApiError, type ShopifyClient } from "@agentes-meta/shopify";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
 import { ingestHourly } from "./hourly.js";
-import { ingestShopify } from "./shopify.js";
 
-export interface CollectorOptions { db: Db; meta: MetaClient; shopify?: ShopifyClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; hourlyDays?: number; shopifyDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
+export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; hourlyDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
 
 export async function runCollector(o: CollectorOptions): Promise<void> {
   const log = o.log ?? console.log;
   await checkTokenExpiry(o, log);
-  const { data: accounts, error } = await o.db.from("accounts").select("id,name,timezone_name,shopify_domain").eq("enabled", true);
+  const { data: accounts, error } = await o.db.from("accounts").select("id,name,timezone_name").eq("enabled", true);
   if (error) throw new Error(error.message);
   const targets = (accounts ?? []).filter(a => !o.accountIds || o.accountIds.includes(a.id));
   for (const acc of targets) {
@@ -54,7 +52,7 @@ async function checkTokenExpiry(o: CollectorOptions, log: (m: string) => void): 
   } catch (e) { log(`⚠ no se pudo consultar debug_token: ${e instanceof Error ? e.message : String(e)}`); }
 }
 
-async function collectAccount(o: CollectorOptions, acc: { id: string; name: string; timezone_name: string; shopify_domain: string | null }, log: (m: string) => void) {
+async function collectAccount(o: CollectorOptions, acc: { id: string; name: string; timezone_name: string }, log: (m: string) => void) {
   const { db, meta } = o;
   const now = new Date();
 
@@ -119,21 +117,10 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     catch (e) { const msg = e instanceof Error ? e.message : String(e); await db.from("alerts").insert({ account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
   }
 
-  // 4b. Shopify (verdad de negocio). Falla por separado; sin token o sin tienda se omite y se dice.
-  let shopify: Record<string, number | string> = {};
-  if (acc.shopify_domain) {
-    if (!o.shopify) { shopify = { skipped: "sin SHOPIFY_ADMIN_TOKEN" }; log(`· shopify ${acc.name}: omitido, falta SHOPIFY_ADMIN_TOKEN`); }
-    else if (o.shopify.domain !== acc.shopify_domain) { shopify = { skipped: `token de otra tienda (${o.shopify.domain})` }; log(`· shopify ${acc.name}: omitido, el token es de ${o.shopify.domain} y la cuenta usa ${acc.shopify_domain}`); }
-    else {
-      try { shopify = await ingestShopify(db, o.shopify, { id: acc.id, shopify_domain: acc.shopify_domain }, { days: o.shopifyDays ?? 14 }); }
-      catch (e) { const msg = e instanceof Error ? e.message : String(e); const kind = e instanceof ShopifyApiError && e.isAuth ? "shopify_auth" : "shopify_failed"; await db.from("alerts").insert({ account_id: acc.id, kind, severity: "warning", message: kind === "shopify_auth" ? `Token de Shopify inválido o sin permisos: ${msg}` : `Falló la ingesta de Shopify: ${msg}` }); shopify = { error: msg }; log(`⚠ shopify ${acc.name}: ${msg}`); }
-    }
-  }
-
   // 5. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, shopify };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights };
 }
 
 /**

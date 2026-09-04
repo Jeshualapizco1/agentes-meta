@@ -9,7 +9,6 @@ set -a; . ./.env; set +a
 gh secret set META_TOKEN_AROMANTE --body "$META_TOKEN_AROMANTE"
 gh secret set SUPABASE_URL --body "$SUPABASE_URL"
 gh secret set SUPABASE_SERVICE_ROLE_KEY --body "$SUPABASE_SERVICE_ROLE_KEY"
-gh secret set SHOPIFY_ADMIN_TOKEN --body "$SHOPIFY_ADMIN_TOKEN"   # Shopify (ver docs/02-accesos.md); sin él el collector omite Shopify y lo dice en stats
 gh workflow run collector          # corrida de prueba
 gh run list --workflow=collector   # ver estado
 ```
