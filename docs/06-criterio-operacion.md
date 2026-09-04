@@ -1,5 +1,10 @@
 # Criterio de operación · cuestionario para Eduardo
 
+> **Eduardo: contesta en lenguaje natural, como lo dirías por WhatsApp** ("pauso un anuncio cuando lleva dos días arriba
+> de 250 de CPA y ya gastó 500 sin vender", "subo 15 % si lleva tres días arriba de 6 de ROAS"). No hace falta tocar este
+> archivo ni escribir en formato: el equipo técnico transcribe cada respuesta a una regla y te la regresa para que la
+> confirmes. Si una pregunta no aplica o no la manejas así, dilo y ya.
+
 **Para qué es esto.** El estratega de la Fase 4 (propuestas de escalar, recortar, pausar y mover presupuesto) se construye
 **leyendo este documento como reglas**, no inventándolas. Cada respuesta se convierte en una fila versionada de `rules`
 con sus umbrales y candados; lo que aquí quede en blanco, el agente no lo hace. Si más adelante una regla falla, se
