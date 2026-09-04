@@ -27,7 +27,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
     sb.from("alerts").select("id,kind,severity,message,created_at,account_id").is("acknowledged_at", null).or(`account_id.eq.${accountId},account_id.is.null`).order("created_at", { ascending: false }).limit(6),
   ]);
 
-  // Agregado diario (misma regla que Cuenta): días cerrados en la zona de la cuenta
+  // Agregado diario (misma regla que Cuenta): días completos en la zona de la cuenta
   const byDate = new Map<string, Day>();
   for (const r of rows ?? []) { const d = byDate.get(r.date) ?? { spend: 0, purchases: 0, value: 0, closed: r.is_closed_day }; d.spend += Number(r.spend ?? 0); d.purchases += Number(r.purchases ?? 0); d.value += Number(r.purchase_value ?? 0); d.closed = d.closed && r.is_closed_day; byDate.set(r.date, d); }
   const dates = [...byDate.keys()].sort();
@@ -56,7 +56,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Hoy · {fmtDay(today + "T12:00:00-06:00")} · días cerrados en zona {tz}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: <span className="text-gradient">cómo va la cuenta</span></h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Hoy · {fmtDay(today + "T12:00:00-06:00")} · zona {tz}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: <span className="text-gradient">cómo va la cuenta</span></h1></div>
         <form className="ml-auto flex gap-2" method="get">
           <select name="account" defaultValue={accountId} className="border border-line px-3 py-1.5 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
           <button className="btn-accent px-4 py-1.5 text-sm">Ver</button>
@@ -64,7 +64,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:auto-rows-min">
-        <Card hero span={8} rows={2} eyebrow="ROAS · últimos 7 días cerrados (Meta)" action={<a href={`/cuenta?account=${accountId}`} className="text-sm text-meta hover:underline">ver Cuenta →</a>}>
+        <Card hero span={8} rows={2} eyebrow="ROAS · últimos 7 días" action={<a href={`/cuenta?account=${accountId}`} className="text-sm text-meta hover:underline">ver Cuenta →</a>}>
           <Kpi hero label="" value={roas7} prev={roasP} format={v => v.toFixed(2)} target={prof?.target_roas ? { value: Number(prof.target_roas), label: `ROAS ${Number(prof.target_roas).toFixed(2)}` } : undefined} hint={prof?.breakeven_roas ? `equilibrio ${Number(prof.breakeven_roas).toFixed(2)}` : undefined}>
             <Sparkline id="hoy-roas" points={spark} markers={markers} height={96} fmt="fixed2" unit="ROAS" />
             <p className="mt-1 font-mono text-[11px] text-muted">14 días · cada punto es una sesión de cambios de una persona · <span className="text-amber">ámbar ↻</span> reinicia aprendizaje · la franja ámbar es el día en curso: se muestra, no se juzga</p>
@@ -91,7 +91,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
           </p>
         </Card>
 
-        <Card span={4} eyebrow="CPA · últimos 7 días cerrados (Meta)">
+        <Card span={4} eyebrow="CPA · últimos 7 días">
           <Kpi label="" value={cpa7} prev={cpaP} format={mxn0} higherIsBetter={false} target={prof?.target_cpa ? { value: Number(prof.target_cpa), label: mxn0(Number(prof.target_cpa)) } : undefined} hint={`${c7.toFixed(0)} compras`} />
         </Card>
 

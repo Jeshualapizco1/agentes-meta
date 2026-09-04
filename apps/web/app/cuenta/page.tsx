@@ -34,7 +34,7 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
   const cpa: Point[] = dates.map(d => { const x = byDate.get(d)!; return { date: d, value: x.purchases > 0 ? x.spend / x.purchases : null, closed: x.closed }; });
   const markers: Marker[] = (sessions ?? []).map(s => ({ id: s.id, date: CDMX_DAY.format(new Date(s.started_at)), time: fmtTime(s.started_at), actor: s.actor_name, summary: s.summary, resets: s.resets_learning, href: `/sesion/${s.id}` }));
 
-  // KPIs: últimos 7 días cerrados contra los 7 anteriores
+  // KPIs: últimos 7 días completos contra los 7 anteriores
   const closed = dates.filter(d => byDate.get(d)!.closed);
   const last7 = closed.slice(-7), prev7 = closed.slice(-14, -7);
   const sum = (ds: string[], k: "spend" | "purchases" | "value") => ds.reduce((n, d) => n + byDate.get(d)![k], 0);
@@ -54,7 +54,7 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
         </form>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {kpi("Gasto · últimos 7 días cerrados", s7, sp7, mxn0, false)}
+        {kpi("Gasto · últimos 7 días", s7, sp7, mxn0, false)}
         {kpi("Compras", c7, cp7, v => v.toFixed(0))}
         {kpi("ROAS", ratio(v7, s7), ratio(vp7, sp7), v => v.toFixed(2))}
         {kpi("CPA", ratio(s7, c7), ratio(sp7, cp7), mxn0, false)}

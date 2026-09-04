@@ -28,7 +28,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
   const since = range.from, until = range.to;
   const todayCdmx = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City" }).format(new Date());
   const { data: rows } = await sb.from("insights_hourly").select("date,hour,spend,purchases,purchase_value").eq("account_id", accountId).gte("date", since).lte("date", until).limit(20000);
-  // Rejilla día de la semana × hora, en CDMX, solo días cerrados
+  // Rejilla día de la semana × hora, en CDMX, solo días completos
   const grid: Cell[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, empty));
   const closedDays = new Set<string>();
   for (const r of rows ?? []) {
@@ -52,7 +52,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días cerrados · hora CDMX (cuenta en {tz})</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días con datos · hora CDMX (cuenta en {tz})</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
         <form method="get" className="ml-auto flex flex-wrap items-end gap-2">
           <select name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
           <select name="metric" defaultValue={metric} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="roas">ROAS</option><option value="cpa">CPA</option><option value="spend">Gasto</option><option value="purchases">Compras</option></select>
