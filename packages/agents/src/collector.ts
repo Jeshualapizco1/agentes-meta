@@ -7,7 +7,7 @@
  *  4. Insights diarios y por hora de Meta.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
-import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
@@ -43,6 +43,39 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
   }
 }
 
+/**
+ * Mapa de entidades completo: todo lo que la base conoce (paginado: PostgREST corta en 1000 filas y la cuenta tiene miles)
+ * más lo vivo que acaba de bajar el collector. La campaña se resuelve por jerarquía anuncio → ad set → campaña.
+ */
+export async function loadEntityMap(db: Db, accountId: string, live: EntityRow[] = []): Promise<EntityMap> {
+  const rows: EntityRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.from("entities").select("id,name,level,campaign_id,parent_id").eq("account_id", accountId).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as EntityRow[]));
+    if (!data || data.length < 1000) break;
+  }
+  return entityMapFromRows([...rows, ...live]);
+}
+
+/** Objetos que ni la base conoce: se consultan a Meta por id (funciona aunque estén borrados) y se guardan en entities para la próxima. */
+export async function resolveFromMeta(db: Db, meta: MetaClient, accountId: string, ids: string[], ents: EntityMap, log: (m: string) => void): Promise<number> {
+  let resolved = 0;
+  for (const id of ids) {
+    try {
+      const n = await meta.node(id);
+      const level: "ad" | "adset" | "campaign" = n.adset_id ? "ad" : n.campaign_id ? "adset" : "campaign";
+      const campaignId = level === "campaign" ? id : n.campaign_id;
+      const { error } = await db.from("entities").upsert({ id, account_id: accountId, level, parent_id: level === "ad" ? n.adset_id : level === "adset" ? n.campaign_id : null, campaign_id: campaignId ?? null, name: n.name ?? id, status: n.status ?? null, effective_status: n.effective_status ?? "DELETED", raw: n, snapshot_at: new Date().toISOString() }, { onConflict: "id", ignoreDuplicates: false });
+      if (error) throw new Error(error.message);
+      ents.set(id, { name: n.name ?? id, level, campaignId });
+      if (n.adset_id && !ents.has(n.adset_id) && n.campaign_id) ents.set(n.adset_id, { name: n.adset_id, level: "adset", campaignId: n.campaign_id });
+      resolved++;
+    } catch (e) { log(`  ⚠ no se pudo resolver ${id} en Meta: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  return resolved;
+}
+
 /** Una anotación del equipo apunta a una sesión que el regrupado borraría sin sucesora. Se lanza desde regroup; no se borra nada. */
 export class OrphanAnnotationError extends Error {
   constructor(public readonly details: { annotation_id: string; session_id: string; message: string }[]) { super(details.map(d => d.message).join(" ")); this.name = "OrphanAnnotationError"; }
@@ -72,9 +105,10 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   if (info.account_status !== 1) await db.from("alerts").insert({ account_id: acc.id, kind: "account_status", severity: "critical", message: `La cuenta ${acc.name} no está activa (status ${info.account_status})` });
   await db.from("accounts").update({ account_status: info.account_status, timezone_name: info.timezone_name, currency: info.currency }).eq("id", acc.id);
 
-  // 1. Entidades
+  // 1. Entidades (lo vivo de Meta; el mapa para resolver campañas se completa después con todo lo que la base conoce)
   const [camps, adsets, ads] = await Promise.all([meta.campaigns(acc.id), meta.adsets(acc.id), meta.ads(acc.id)]);
-  const ents: EntityMap = new Map();
+  const liveEnts: EntityMap = new Map();
+  const ents: EntityMap = liveEnts;
   const rows: Record<string, unknown>[] = [];
   const push = (level: "campaign" | "adset" | "ad", e: Record<string, unknown> & { id: string; name: string }, parent?: string, campaignId?: string) => {
     ents.set(e.id, { name: e.name, level, campaignId: campaignId ?? (level === "campaign" ? e.id : undefined) });
@@ -111,11 +145,12 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   const inserted = (after ?? 0) - (before ?? 0);
 
   // 3. Reagrupar desde el corte (evento nuevo más antiguo − 6 h). Si no hubo nuevos, solo si nunca se agrupó.
-  let groups = 0, sessions = 0, relinked = 0;
+  let groups = 0, sessions = 0, relinked = 0, resolvedFromMeta = 0;
   const { count: grouped } = await db.from("change_sessions").select("*", { count: "exact", head: true }).eq("account_id", acc.id);
   if (inserted > 0 || !grouped) {
     const cutoff = inserted > 0 ? new Date(Math.min(...events.map(e => e.eventTime.getTime())) - 6 * 3600_000) : new Date(0);
-    ({ groups, sessions, relinked } = await regroup(db, acc.id, cutoff, ents));
+    const fullEnts = await loadEntityMap(db, acc.id, rows.map(r => ({ id: r.id as string, name: r.name as string, level: r.level as "campaign" | "adset" | "ad", campaign_id: (r.campaign_id as string | null) ?? null, parent_id: (r.parent_id as string | null) ?? null })));
+    ({ groups, sessions, relinked, resolvedFromMeta } = await regroup(db, acc.id, cutoff, fullEnts, { meta, log }));
   }
 
   // 4. Insights diarios (Fase 2). Falla por separado para no perder la bitácora.
@@ -154,7 +189,7 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   // 6. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, ceiling };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, resolvedFromMeta, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, ceiling };
 }
 
 /**
@@ -169,8 +204,9 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
  *  5. reasigna change_events.group_id (después del re-enlace: si esto falla, la siguiente corrida aún ve la membresía vieja);
  *  6. borra las sesiones/grupos del rango que ya no existen (a estas alturas nadie los referencia).
  */
-export async function regroup(db: Db, accountId: string, cutoff: Date, ents: EntityMap): Promise<{ groups: number; sessions: number; relinked: number }> {
-  const iso = cutoff.toISOString();
+export async function regroup(db: Db, accountId: string, cutoff: Date, ents: EntityMap, opts: { meta?: MetaClient; log?: (m: string) => void } = {}): Promise<{ groups: number; sessions: number; relinked: number; resolvedFromMeta: number }> {
+  const iso = cutoff.toISOString(); const log = opts.log ?? (() => {});
+  let resolvedFromMeta = 0;
   const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message); };
   // select ... where col in (ids) por lotes de 200: PostgREST manda el filtro en la URL y con cientos de UUIDs falla
   // lectura completa paginada (PostgREST corta en 1000 filas)
@@ -189,6 +225,8 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
     if (!data || data.length < 1000) break;
   }
   const groups = all.length ? groupEvents(all) : [];
+  // objetos cuya campaña no se resuelve ni por jerarquía: consultarlos a Meta por id (borrados incluidos) antes de armar sesiones
+  if (opts.meta) { const missing = unresolvedObjectIds(groups, ents); if (missing.length) { resolvedFromMeta = await resolveFromMeta(db, opts.meta, accountId, missing, ents, log); log(`  ↻ ${resolvedFromMeta}/${missing.length} objetos resueltos consultando a Meta`); } }
   const sessions = all.length ? groupSessions(groups, undefined, ents) : [];
   const sessIds = sessions.map(s => sessionId(s));
   const gIds = groups.map(g => groupId(g));
@@ -215,7 +253,7 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   const sessionOfGroup = new Map<ChangeGroupRef, string>();
   sessions.forEach((s, i) => { for (const g of s.groups) sessionOfGroup.set(g, sessIds[i]!); });
   const groupRows = groups.map((g, i) => {
-    const cid = g.level === "campaign" ? g.objectId : (ents.get(g.objectId)?.campaignId ?? (g.parentId ? ents.get(g.parentId)?.campaignId : undefined) ?? null);
+    const cid = campaignOf(g, ents).id ?? null;
     return { id: gIds[i], account_id: accountId, session_id: sessionOfGroup.get(g) ?? null, actor_id: g.actorId, actor_name: g.actorName, actor_kind: g.actorKind, object_id: g.objectId, object_name: g.objectName, object_type: g.objectType, campaign_id: cid, started_at: g.startedAt.toISOString(), ended_at: g.endedAt.toISOString(), kind: g.kind, significance: g.significance, resets_learning: g.resetsLearning, summary: g.summary, details: g.details, event_count: g.events.length };
   });
   if (groupRows.length) await upsertChunks(db, "change_groups", groupRows, "id");
@@ -262,6 +300,6 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   // 6. borrar lo viejo que ya no existe (grupos antes que sesiones por la FK)
   for (let i = 0; i < staleGroups.length; i += 200) { const ids = staleGroups.slice(i, i + 200); fail((await db.from("change_events").update({ group_id: null }).in("group_id", ids)).error); fail((await db.from("change_groups").delete().in("id", ids)).error); }
   for (let i = 0; i < staleSess.length; i += 200) fail((await db.from("change_sessions").delete().in("id", staleSess.slice(i, i + 200))).error);
-  return { groups: groups.length, sessions: sessions.length, relinked };
+  return { groups: groups.length, sessions: sessions.length, relinked, resolvedFromMeta };
 }
 type ChangeGroupRef = ReturnType<typeof groupEvents>[number];

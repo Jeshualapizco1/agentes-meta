@@ -7,4 +7,5 @@ export * from "./sessions.js";
 export * from "./ids.js";
 export * from "./ceiling.js";
 export * from "./experiments.js";
+export * from "./entities.js";
 export * from "./evaluation.js";

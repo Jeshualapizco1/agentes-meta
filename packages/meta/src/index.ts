@@ -58,6 +58,11 @@ export class MetaClient {
     return this.get<{ id: string; name: string; account_status: number; currency: string; timezone_name: string; timezone_offset_hours_utc: number; amount_spent: string }>(`act_${id}`, { fields: "name,account_status,currency,timezone_name,timezone_offset_hours_utc,amount_spent" });
   }
 
+  /** Un objeto por id (anuncio, ad set o campaña), aunque Meta ya lo haya borrado. Sirve para resolver la campaña de cambios sobre objetos que ya no existen. */
+  node(id: string, fields = "id,name,campaign_id,adset_id,status,effective_status") {
+    return this.get<{ id: string; name?: string; campaign_id?: string; adset_id?: string; status?: string; effective_status?: string }>(id, { fields });
+  }
+
   /** Estado del token en uso (debug_token). expires_at = 0 significa sin caducidad (System User). */
   debugToken() {
     return this.get<{ data: { is_valid: boolean; expires_at: number; data_access_expires_at?: number; scopes?: string[]; type?: string; error?: { message: string } } }>("debug_token", { input_token: this.o.token }).then(r => r.data);

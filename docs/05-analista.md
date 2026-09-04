@@ -137,24 +137,35 @@ Con una sola lectura (`single`) la confianza no pasa de media: solo dos lecturas
 | `sin_gasto_previo` | la campaña existía pero no entregó los 7 días previos (pausada) | no: estructural |
 | `propia_compras_insuficientes` | la campaña tuvo menos de 10 compras en sus 7 días previos | no: **volumen** |
 
-**Distribución real (Aromante 1, corrida del 2026-09-04, 144 ventanas de 48 sesiones):**
+**Distribución real (Aromante 1, 144 ventanas de 48 sesiones), antes y después de arreglar la resolución de campaña
+(2026-09-04):**
 
-| Situación | Ventanas |
-|---|---|
-| Dos lecturas: coinciden (`agree`) | 45 (18 maduras, 27 preliminares) |
-| Dos lecturas: una plana (`partial`) | 19 |
-| Dos lecturas: se contradicen (`mixed`) | 2 |
-| Una lectura: falta el resto por `sin_campana_identificada` | 42 |
-| Una lectura: falta la propia por `menos_de_7_dias_previos` | 6 |
-| Ninguna: `pendiente` | 9 |
-| Ninguna: `menos_de_7_dias_previos` (9) o combinada con `sin_campana_identificada` (6) | 15 |
-| Ninguna: `sin_gasto_despues` | 6 |
+| Situación | Antes | Después |
+|---|---|---|
+| Dos lecturas: coinciden (`agree`) | 45 | **58** |
+| Dos lecturas: una plana (`partial`) | 19 | **24** |
+| Dos lecturas: se contradicen (`mixed`) | 2 | **5** |
+| Una lectura: falta el resto por `sin_campana_identificada` | 42 | 12 |
+| Una lectura: falta la propia por `menos_de_7_dias_previos` | 6 | 15 |
+| Ninguna: `pendiente` | 9 | 9 |
+| Ninguna: `menos_de_7_dias_previos`, sola o con `sin_campana_identificada` | 15 | 15 |
+| Ninguna: `sin_gasto_despues` | 6 | 6 |
+| **Total con doble lectura** | **66** | **87** |
 
-Lectura: de las 78 ventanas sin doble lectura, **9 se resuelven solas** (pendientes), **0 son de volumen** (ninguna
-referencia se perdió por pocas compras: la cuenta tiene compras de sobra) y **69 son estructurales**: 48 por sesiones
-que no tocaron una campaña identificable (la mejora que más ventanas recupera es mapear mejor esas sesiones a su campaña),
-21 por campañas nuevas sin semana previa y 6 por campañas que dejaron de entregar después del cambio. Se muestra en
-`/analisis` bajo cada ventana como "sin lectura frente a …: causa".
+Qué pasaba: el 48 de "sin campaña identificable" no era estructural, era un hueco del collector. Los anuncios tocados sí
+estaban en `entities` con su campaña, pero el comando `regroup` leía esa tabla sin paginar y PostgREST corta en 1,000
+filas de unas 3,700, así que el mapa llegaba incompleto; y el collector solo usaba lo vivo que baja de Meta, sin lo que la
+base ya conocía de anuncios borrados. Ahora el mapa se arma con todo lo que la base conoce (`loadEntityMap`, paginado),
+la campaña se resuelve por jerarquía anuncio → ad set → campaña (`entityMapFromRows`, con prueba en core para una sesión
+sobre un anuncio cuyo padre solo existe en snapshots) y lo que aún falta se consulta a Meta por id (`resolveFromMeta`) y se
+guarda para la próxima. Resultado: 16 sesiones sin campaña → 5, y esas 5 son "Subió imágenes a la cuenta" (nivel cuenta:
+ahí sí no hay campaña). 21 ventanas recuperaron doble lectura. Meta no devolvió 8 anuncios borrados de forma permanente
+("does not exist"): son las 12 ventanas de `sin_campana_identificada` que quedan sin resolver, más las 3 combinadas.
+
+Lectura final: de las 57 ventanas sin doble lectura, **9 se resuelven solas** (pendientes), **0 son de volumen** y 48 son
+estructurales: 30 por campañas nuevas sin semana previa (creció porque las sesiones recuperadas eran sobre campañas
+recién lanzadas), 15 por objetos que ya no existen y 6 por campañas que dejaron de entregar. Se muestra en `/analisis`
+bajo cada ventana como "sin lectura frente a …: causa".
 
 ## 5. Compras suficientes y confianza
 
