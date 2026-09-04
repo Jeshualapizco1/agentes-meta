@@ -5,7 +5,7 @@ Lee esto completo al iniciar cualquier sesión. Después lee `PENDIENTES.md` (qu
 ## Qué es este proyecto
 Bitácora inteligente de Meta Ads para Aromante (fragancias para hombres, México). Tres agentes:
 1. **Collector** (diario 00:00 CDMX + cada 6 h): baja cambios y entidades de Meta, los agrupa en sesiones legibles con hora, responsable y acción.
-2. **Analista semanal** (domingo 23:59 CDMX, también manual): cruza cambios con resultados, dice qué ayudó y qué no, con nivel de confianza.
+2. **Analista semanal** (construido 2026-09-03; corre tras cada collector y genera el reporte los lunes 00:17 CDMX): ventanas 72h/7d/14d por sesión (campañas tocadas vs. resto de la cuenta), evidencia determinista en `analyses.evidence`, narrativa con Claude `claude-opus-5` si hay `ANTHROPIC_API_KEY`. Pantalla /analisis.
 3. **Estratega**: highlights, cuándo escalar, recortar y hacer dayparting. Solo recomienda; nunca ejecuta sin aprobación humana.
 Todo se ve en una app web muy visual (`apps/web`).
 
@@ -44,10 +44,11 @@ App: https://bitacora-aromante.netlify.app (Netlify; desplegar desde la RAÍZ co
 pnpm install
 pnpm --filter @agentes-meta/core test                       # pruebas del core
 pnpm --filter @agentes-meta/agents collector -- --days=90   # collector (usa .env de la raíz)
+pnpm --filter @agentes-meta/agents analyst -- --weekly=force # analista: ventanas + reporte semanal del periodo que termina ayer
 cd apps/web && pnpm dev -- -p 3010                          # app en http://localhost:3010
 ```
 Preferir `pnpm --filter` o `node_modules/.bin/<bin>` dentro del paquete; pnpm aísla binarios por paquete.
 El hook GateGuard pide presentar dos hechos antes del primer Bash de cada sesión: la solicitud del usuario y qué produce el comando.
 
 ## Estructura
-`packages/core` (normalize, grouping, sessions, naming, time, ids) · `packages/meta` (Graph API) · `packages/db` (Supabase) · `packages/agents` (collector, cli) · `apps/web` (Next.js 15, Tailwind 4) · `scripts/` (backfill y preview offline) · `data/raw/` (ignorado, muestras crudas).
+`packages/core` (normalize, grouping, sessions, naming, time, ids) · `packages/meta` (Graph API) · `packages/db` (Supabase) · `packages/agents` (collector, analyst, narrative, cli) · `apps/web` (Next.js 15, Tailwind 4) · `scripts/` (backfill y preview offline) · `data/raw/` (ignorado, muestras crudas).

@@ -3,6 +3,7 @@
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
 ## Bloqueado por el usuario
+- [ ] **Llave de Claude para la narrativa semanal:** pegar `ANTHROPIC_API_KEY` en `.env` y subirla con `gh secret set ANTHROPIC_API_KEY --body "$(grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2 | xargs)"`. Sin ella el analista guarda la evidencia y los veredictos, pero el reporte queda sin redactar.
 - [ ] Dar de alta a Ernesto y Josué en https://bitacora-aromante.netlify.app/usuarios con sus contraseñas.
 - [ ] Rotar el token personal de Supabase y la contraseña admin, ambos pegados en el chat (Jeshua lo hace de su lado, 2026-09-03).
 - [x] Perfil de Aromante 1 capturado en la app (margen 30%, equilibrio 2.5, objetivo 6, CPA 170, techo 15,000, piso 9,000, cambio máx. 17%).
@@ -10,7 +11,8 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] System User de Meta para token permanente (opcional hasta el 2026-11-02).
 
 ## Siguiente sesión
-- [ ] **Siguiente:** vista de nomenclatura (entidades con `issues`); después insignias de madurez/cobertura y arranca la Fase 3 (analista semanal).
+- [ ] **Siguiente (Fase 3):** entidad experimento (hipótesis y criterio de éxito declarados antes, ligada a la sesión) y veredicto automático contra el criterio; después el estratega (Fase 4).
+- [ ] Vista de nomenclatura (entidades con `issues`); insignias de madurez/cobertura en cada métrica.
 - [ ] UI: revisar en móvil real (el apilado a una columna está hecho pero no se capturó).
 - [ ] Fase 3: ventanas de evaluación 72h/7d/14d por sesión de cambios y agente semanal.
 - [x] Desplegada en Netlify: https://bitacora-aromante.netlify.app (ver docs/04-deploy-web.md).
@@ -22,6 +24,7 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [ ] **Verificar el cron** después de la primera corrida programada (00:17 CDMX del 2026-09-04): `gh run list --workflow=collector` debe mostrar una fila con trigger `schedule`. Contexto: el 2026-09-03 la de las 18:00 CDMX no corrió; se movió el schedule al minuto 17 y `gh workflow list` confirma que está `active`. Si sigue sin correr, hacer un commit vacío y revisar Settings → Actions del repo.
 
 ## Hecho (últimas sesiones)
+- 2026-09-03 (noche, 7) · **Agente 2, analista semanal (Fase 3):** ventanas 72h/7d/14d por sesión contra el resto de la cuenta (core con 6 pruebas), agente `analyst` en el CLI y en el workflow (cada corrida recalcula; los lunes genera el reporte), evidencia semanal determinista + narrativa con Claude (pendiente de llave), pantalla /analisis con reporte y veredicto por sesión, botón Forzar análisis. Primera corrida real: 48 sesiones, 144 ventanas, 67 maduras. UI: calendario encadenado, cuadro flotante en gráficas, paginación en Anuncios.
 - 2026-09-03 (noche, 6) · Correcciones pedidas: selector de periodo con calendario (inicio y fin) en Bitácora, Cuenta, Horarios y Anuncios; Hoy muestra ingresos atribuidos por Meta; la gráfica del héroe lee al pasar el cursor; fuera "días cerrados" de la app; las gráficas de Cuenta ya no listan sesiones al pasar el cursor. Nueva vista /anuncios con miniatura, métricas por periodo, "Revisado" (tabla `ad_reviews`, migración 0008) y contador de sin revisar en Hoy.
 - 2026-09-03 (noche, 5) · Eliminada la integración de Shopify por decisión del dueño (la verdad es Meta, con wetracked.io conectado): paquete, ingesta, tabla `shopify_daily`, columna `accounts.shopify_domain`, tarjetas y docs. Migración 0007.
 - 2026-09-03 (noche, 4) · Rediseño Bento UI + soft glow + gradient en tema oscuro sin tocar lógica ni consultas: tokens en globals.css, componentes Card/Kpi/Sparkline, pantalla /hoy como inicio (rejilla 12 col), barra lateral con íconos, todas las páginas con Card y chips semánticos, rampa del mapa de calor sobre fondo oscuro. Capturas en docs/capturas/. De paso: corregido un error real de Next en Cuenta (función pasada a componente cliente) que tiraba la página.

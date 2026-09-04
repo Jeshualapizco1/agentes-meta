@@ -6,6 +6,7 @@ on:
     inputs:
       accounts: { description: "IDs de cuenta separados por coma (vacío = todas)", required: false, default: "" }
       days: { description: "Días de backfill si la cuenta está vacía", required: false, default: "90" }
+      weekly: { description: "Reporte semanal: auto (lunes), force, off", required: false, default: "auto" }
 concurrency: { group: collector, cancel-in-progress: false }
 jobs:
   run:
@@ -27,3 +28,12 @@ jobs:
         run: |
           ACC="${{ github.event.inputs.accounts }}"
           ../../node_modules/.bin/tsx src/cli.ts collector --trigger=${{ github.event_name == 'schedule' && 'schedule' || 'manual' }} --days=${{ github.event.inputs.days || '90' }} ${ACC:+--accounts=$ACC}
+      - name: analista
+        working-directory: packages/agents
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ACC="${{ github.event.inputs.accounts }}"
+          ../../node_modules/.bin/tsx src/cli.ts analyst --trigger=${{ github.event_name == 'schedule' && 'schedule' || 'manual' }} --weekly=${{ github.event.inputs.weekly || 'auto' }} ${ACC:+--accounts=$ACC}

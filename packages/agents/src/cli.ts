@@ -1,6 +1,7 @@
 import { dbFromEnv, loadDotenv } from "@agentes-meta/db";
 import { MetaClient } from "@agentes-meta/meta";
 import { runCollector, regroup } from "./collector.js";
+import { runAnalyst } from "./analyst.js";
 
 loadDotenv(process.env.DOTENV_PATH ?? ".env");
 const [cmd, ...rest] = process.argv.slice(2);
@@ -10,6 +11,9 @@ if (cmd === "collector") {
   const db = dbFromEnv();
   const meta = new MetaClient({ token: process.env.META_TOKEN_AROMANTE!, version: process.env.META_API_VERSION, log: console.log });
   await runCollector({ db, meta, accountIds: args.accounts?.split(","), backfillDays: args.days ? Number(args.days) : 90, insightsDays: args.insightsDays ? Number(args.insightsDays) : 14, hourlyDays: args.hourlyDays ? Number(args.hourlyDays) : 7, skipInsights: args.skipInsights === "true", triggeredBy: args.trigger ?? "manual", log: console.log });
+} else if (cmd === "analyst") {
+  // Agente 2: ventanas de evaluación por sesión y reporte semanal (--weekly=auto|force|off; auto = lunes)
+  await runAnalyst({ db: dbFromEnv(), accountIds: args.accounts?.split(","), days: args.days ? Number(args.days) : 30, weekly: (args.weekly as "auto" | "force" | "off" | undefined) ?? "auto", anthropicKey: process.env.ANTHROPIC_API_KEY || undefined, triggeredBy: args.trigger ?? "manual", log: console.log });
 } else if (cmd === "regroup") {
   // Mantenimiento: rehace sesiones y grupos desde --since (ISO, default 1970) para las cuentas dadas; conserva anotaciones.
   const db = dbFromEnv();
@@ -24,5 +28,5 @@ if (cmd === "collector") {
   }
   void meta;
 } else {
-  console.error("uso: tsx src/cli.ts collector [--accounts=id,id] [--days=90] [--trigger=schedule|manual] | regroup [--accounts=id,id] [--since=ISO]"); process.exit(1);
+  console.error("uso: tsx src/cli.ts collector [--accounts=id,id] [--days=90] [--trigger=schedule|manual] | analyst [--accounts=id,id] [--days=30] [--weekly=auto|force|off] | regroup [--accounts=id,id] [--since=ISO]"); process.exit(1);
 }

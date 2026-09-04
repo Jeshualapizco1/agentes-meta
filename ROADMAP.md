@@ -34,11 +34,12 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - [ ] Criterio: ver cualquier cambio y su "después" en una sola pantalla
 
 ## Fase 3 · Agente semanal (semanas 5-6)
-- [ ] Ventanas de evaluación por cambio a 72 h, 7 d y 14 d contra el resto de la cuenta
+- [x] Ventanas de evaluación por sesión a 72 h, 7 d y 14 d: campañas tocadas vs. resto de la cuenta, antes vs. después, solo días completos (core con pruebas; tabla `evaluation_windows`)
 - [ ] Entidad experimento con hipótesis y criterio de éxito declarados antes
-- [ ] Paquete de evidencia determinista + narrativa con Claude API
-- [ ] Corrida domingo 23:59 CDMX + botón "forzar análisis"
-- [ ] Veredicto preliminar → maduro; reporte enviable
+- [x] Paquete de evidencia determinista (`buildWeeklyEvidence`) + narrativa con Claude (claude-opus-5; requiere `ANTHROPIC_API_KEY` en secretos)
+- [x] Corrida automática los lunes 00:17 CDMX (cierre del domingo) en el mismo workflow del collector + botón "Forzar análisis" en /analisis
+- [x] Veredicto pendiente → preliminar → maduro por ventana; reporte en /analisis
+- [ ] Reporte enviable (correo/WhatsApp) — depende del canal de alertas
 - [ ] Criterio: el media buyer acepta el reporte como justo dos semanas seguidas
 
 ## Fase 4 · Agente estratega (semanas 7-8)
