@@ -57,6 +57,8 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
             <Field name="daily_spend_ceiling" label="Techo de gasto diario" unit="MXN" help="Suma de todas las campañas activas. Nunca se rebasa." value={prof?.daily_spend_ceiling} />
             <Field name="daily_spend_floor" label="Piso de gasto diario" unit="MXN" help="Por debajo, el agente avisa que la cuenta se está apagando." value={prof?.daily_spend_floor} />
             <Field name="max_budget_change_pct" label="Cambio máximo por movimiento" unit="%" help="Más del 20% reinicia la fase de aprendizaje de Meta." value={prof?.max_budget_change_pct ?? 20} />
+            <Field name="max_cumulative_change_pct" label="Cambio acumulado máximo" unit="%" help="Suma de movimientos de presupuesto sobre la misma campaña dentro de la ventana de abajo. Frena el goteo de +17% cada 3 días." value={prof?.max_cumulative_change_pct ?? 35} />
+            <Field name="cumulative_window_days" label="Ventana del acumulado" unit="días" help="Días sobre los que se suma el cambio acumulado." value={prof?.cumulative_window_days ?? 7} step="1" />
             <Field name="cooldown_hours" label="Espera tras un cambio" unit="horas" help="No se vuelve a tocar la misma campaña antes de este tiempo." value={prof?.cooldown_hours ?? 72} step="1" />
             <Field name="max_actions_per_day" label="Tope de acciones por día" unit="acciones" help="Por cuenta, contando propuestas aprobadas." value={prof?.max_actions_per_day ?? 5} step="1" />
           </div>

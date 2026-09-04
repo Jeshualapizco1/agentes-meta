@@ -17,6 +17,7 @@ export async function saveProfile(form: FormData) {
     target_roas: num(form.get("target_roas")), target_cpa: num(form.get("target_cpa")),
     daily_spend_ceiling: num(form.get("daily_spend_ceiling")), daily_spend_floor: num(form.get("daily_spend_floor")),
     max_budget_change_pct: num(form.get("max_budget_change_pct")) ?? 20, cooldown_hours: num(form.get("cooldown_hours")) ?? 72, max_actions_per_day: num(form.get("max_actions_per_day")) ?? 5,
+    max_cumulative_change_pct: num(form.get("max_cumulative_change_pct")) ?? 35, cumulative_window_days: num(form.get("cumulative_window_days")) ?? 7,
     whitelist_campaign_ids: form.getAll("whitelist").map(String),
     hard_noes: String(form.get("hard_noes") ?? "").trim() || null,
     mode: (["off", "semi", "auto"].includes(String(form.get("mode"))) ? String(form.get("mode")) : "off") as "off" | "semi" | "auto",

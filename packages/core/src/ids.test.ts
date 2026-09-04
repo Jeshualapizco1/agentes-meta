@@ -97,7 +97,7 @@ describe("planRelink (anotaciones y ventanas antes de borrar)", () => {
   it("anotación sin sucesora es error (no se borra nada); ventana sin sucesora se suelta con razón", () => {
     const plan = planRelink({ mapSession: new Map(), mapGroup: new Map(), staleSessions: ["s-old"], staleGroups: ["g-old"],
       annotations: [{ id: "n1", session_id: "s-old", group_id: null }], windows: [{ id: "w1", session_id: "s-old", group_id: null, horizon: "72h" }, { id: "w2", session_id: null, group_id: "g-old", horizon: "72h" }] });
-    expect(plan.errors).toHaveLength(1); expect(plan.annotations).toEqual([]);
+    expect(plan.errors).toEqual([{ annotation_id: "n1", session_id: "s-old", message: expect.stringMatching(/sin sucesora/) }]); expect(plan.annotations).toEqual([]);
     expect(plan.dropWindows.map(d => d.id).sort()).toEqual(["w1", "w2"]);
   });
 });

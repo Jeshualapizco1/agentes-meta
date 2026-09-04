@@ -5,4 +5,5 @@ export * from "./naming.js";
 export * from "./time.js";
 export * from "./sessions.js";
 export * from "./ids.js";
+export * from "./ceiling.js";
 export * from "./evaluation.js";

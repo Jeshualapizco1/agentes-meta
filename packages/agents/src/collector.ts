@@ -7,7 +7,7 @@
  *  4. Insights diarios y por hora de Meta.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
-import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
@@ -29,14 +29,25 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
       await o.db.from("agent_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats: { ...stats, ms: Date.now() - t0 } }).eq("id", run!.id);
       log(`✔ ${acc.name}: ${JSON.stringify(stats)}`);
     } catch (e) {
+      // el fallo de una cuenta no detiene a las demás: se registra, se alerta y el bucle sigue
       const msg = e instanceof Error ? e.message : String(e);
       await o.db.from("agent_runs").update({ status: "failed", finished_at: new Date().toISOString(), error: msg }).eq("id", run!.id);
       const kind = e instanceof MetaApiError && e.isAuth ? "meta_auth" : "collector_failed";
-      await o.db.from("alerts").insert({ account_id: acc.id, kind, severity: "critical", message: kind === "meta_auth" ? `Token de Meta inválido o vencido: ${msg}` : `Falló el collector: ${msg}` });
+      if (e instanceof OrphanAnnotationError) {
+        // una alerta por día mientras no se atienda (el collector reintenta cada 6 h y volvería a fallar igual)
+        const { count } = await o.db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", "collector_failed").eq("account_id", acc.id).is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString()).filter("payload->>reason", "eq", "annotation_orphan");
+        if (!count) await o.db.from("alerts").insert({ account_id: acc.id, kind, severity: "critical", message: `Falló el collector: ${msg}`, payload: { reason: "annotation_orphan", account_id: acc.id, session_id: e.details[0]!.session_id, annotation_id: e.details[0]!.annotation_id, annotations: e.details, hint: ORPHAN_HINT } });
+      } else await o.db.from("alerts").insert({ account_id: acc.id, kind, severity: "critical", message: kind === "meta_auth" ? `Token de Meta inválido o vencido: ${msg}` : `Falló el collector: ${msg}` });
       log(`✖ ${acc.name}: ${msg}`);
     }
   }
 }
+
+/** Una anotación del equipo apunta a una sesión que el regrupado borraría sin sucesora. Se lanza desde regroup; no se borra nada. */
+export class OrphanAnnotationError extends Error {
+  constructor(public readonly details: { annotation_id: string; session_id: string; message: string }[]) { super(details.map(d => d.message).join(" ")); this.name = "OrphanAnnotationError"; }
+}
+const ORPHAN_HINT = "No se borró nada y las demás cuentas siguieron. Qué hacer: abrir la sesión indicada, copiar la anotación a la sesión vigente que contiene esos cambios (o quitarla si ya no aplica) y esperar la siguiente corrida; el collector reintenta cada 6 h y esta cuenta no se actualiza hasta resolverlo.";
 
 /** Consulta debug_token y alerta (meta_token_expiring, warning) cuando faltan menos de 10 días; una alerta por día mientras no se atienda. */
 async function checkTokenExpiry(o: CollectorOptions, log: (m: string) => void): Promise<void> {
@@ -117,10 +128,33 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
     catch (e) { const msg = e instanceof Error ? e.message : String(e); await db.from("alerts").insert({ account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
   }
 
-  // 5. Día sin cambios humanos → se registra explícitamente
+  // 5. Techo de gasto contra el presupuesto activo y el gasto real (en cada pasada; docs/06-criterio-operacion.md)
+  let ceiling: Record<string, unknown> = {};
+  try {
+    const accToday = toZoned(now, info.timezone_name).date;
+    const lastClosed = new Date(`${accToday}T12:00:00Z`); lastClosed.setUTCDate(lastClosed.getUTCDate() - 1); const lastClosedDate = lastClosed.toISOString().slice(0, 10);
+    const [{ data: prof }, { data: spendRows }] = await Promise.all([
+      db.from("account_profiles").select("daily_spend_ceiling").eq("account_id", acc.id).maybeSingle(),
+      db.from("insights_daily").select("date,spend").eq("account_id", acc.id).eq("level", "campaign").in("date", [lastClosedDate, accToday]),
+    ]);
+    const sum = (d: string) => { const xs = (spendRows ?? []).filter(r => r.date === d); return xs.length ? xs.reduce((a, r) => a + Number(r.spend ?? 0), 0) : null; };
+    const check = ceilingCheck({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, spendLastClosed: sum(lastClosedDate), spendTodayPartial: sum(accToday),
+      ents: rows.map(r => ({ id: r.id as string, level: r.level as "campaign" | "adset" | "ad", campaign_id: (r.campaign_id as string | null) ?? null, effective_status: (r.effective_status as string | null) ?? null, daily_budget_cents: (r.daily_budget as number | null) ?? null })) });
+    ceiling = { ...check, last_closed: lastClosedDate };
+    const mxn = (n: number) => `$${Math.round(n).toLocaleString("es-MX")}`;
+    const alertOnce = async (kind: string, severity: "info" | "warning", message: string) => {
+      const { count } = await db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", kind).eq("account_id", acc.id).is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+      if (!count) await db.from("alerts").insert({ account_id: acc.id, kind, severity, message, payload: check });
+    };
+    // el candado del estratega se mide contra el gasto real; el presupuesto activo solo informa cuánto podría gastarse si Meta entregara todo
+    if (check.over_spend) await alertOnce("spend_over_ceiling", "warning", `El gasto real del ${lastClosedDate} (${mxn(check.spend_last_closed!)}) rebasó el techo de ${mxn(check.ceiling!)}.`);
+    else if (check.over_budget) await alertOnce("budget_over_ceiling", "info", `El presupuesto diario activo suma ${mxn(check.budget_active)} en ${check.active_campaigns} campañas (${check.budget_pct}% del techo de ${mxn(check.ceiling!)}); el gasto real del ${lastClosedDate} fue ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Si Meta entregara todo el presupuesto se rebasaría el techo.`);
+  } catch (e) { log(`⚠ techo ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); ceiling = { error: 1 }; }
+
+  // 6. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, ceiling };
 }
 
 /**
@@ -211,7 +245,7 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
       ...(targets.length ? await selectIn<RelinkWindowRow>("evaluation_windows", "id,session_id,group_id,horizon", "group_id", targets) : []),
     ]);
     const plan = planRelink({ mapSession: mapS, mapGroup: mapG, staleSessions: staleSess, staleGroups, annotations: notes, windows: byId([...staleWins, ...targetWins]) });
-    if (plan.errors.length) throw new Error(plan.errors.join(" "));
+    if (plan.errors.length) throw new OrphanAnnotationError(plan.errors);
     // primero soltar las ventanas que chocarían, luego mover las demás, al final las anotaciones
     for (let i = 0; i < plan.dropWindows.length; i += 200) fail((await db.from("evaluation_windows").delete().in("id", plan.dropWindows.slice(i, i + 200).map(d => d.id))).error);
     for (const w of plan.windows) { const { error: ue } = await db.from("evaluation_windows").update(w.patch).eq("id", w.id); fail(ue); relinked++; }

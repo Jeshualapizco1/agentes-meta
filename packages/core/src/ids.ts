@@ -70,7 +70,8 @@ export interface RelinkPlan {
   annotations: { id: string; patch: { session_id?: string; group_id?: string | null } }[];
   windows: { id: string; patch: { session_id?: string; group_id?: string | null } }[];
   dropWindows: { id: string; reason: string }[];
-  errors: string[];
+  /** Anotaciones cuya sesión desaparecería sin sucesora: el collector debe fallar y no borrar nada. */
+  errors: { annotation_id: string; session_id: string; message: string }[];
 }
 export function planRelink(o: { mapSession: Map<string, string>; mapGroup: Map<string, string>; staleSessions: Iterable<string>; staleGroups: Iterable<string>; annotations: RelinkRow[]; windows: RelinkWindowRow[] }): RelinkPlan {
   const staleS = new Set(o.staleSessions), staleG = new Set(o.staleGroups);
@@ -79,7 +80,7 @@ export function planRelink(o: { mapSession: Map<string, string>; mapGroup: Map<s
     const patch: { session_id?: string; group_id?: string | null } = {};
     if (n.session_id && staleS.has(n.session_id)) {
       const to = o.mapSession.get(n.session_id);
-      if (!to) { plan.errors.push(`La anotación ${n.id} está en la sesión ${n.session_id}, que desaparecería sin sucesora. No se borra nada.`); continue; }
+      if (!to) { plan.errors.push({ annotation_id: n.id, session_id: n.session_id, message: `La anotación ${n.id} está en la sesión ${n.session_id}, que desaparecería sin sucesora. No se borra nada.` }); continue; }
       patch.session_id = to;
     }
     if (n.group_id && staleG.has(n.group_id)) patch.group_id = o.mapGroup.get(n.group_id) ?? null;

@@ -23,7 +23,8 @@ export default async function Estado() {
       </Card>
       <Card>
         <h2 className="mb-2 font-semibold">Alertas sin atender</h2>
-        {alerts?.length ? <ul className="flex flex-col gap-2">{alerts.map(a => <li key={a.id} className="flex items-start gap-2 text-sm"><Chip tone={a.severity === "critical" ? "crit" : "amber"}>{a.kind}</Chip><span>{a.message}</span><span className="ml-auto font-mono text-[11px] text-muted">{accName.get(a.account_id) ?? ""} · {fmtTime(a.created_at)}</span></li>)}</ul> : <p className="text-sm text-muted">Ninguna.</p>}
+        {alerts?.length ? <ul className="flex flex-col gap-2">{alerts.map(a => <li key={a.id} className="flex flex-col gap-1 text-sm"><div className="flex items-start gap-2"><Chip tone={a.severity === "critical" ? "crit" : "amber"}>{a.kind}</Chip><span>{a.message}</span><span className="ml-auto font-mono text-[11px] text-muted">{accName.get(a.account_id) ?? ""} · {fmtDay(a.created_at).split(",")[0]} {fmtTime(a.created_at)}</span></div>
+            {a.payload?.hint && <p className="ml-1 rounded-lg bg-paper px-3 py-2 text-[12px] text-muted"><b className="text-ink">Qué hacer:</b> {a.payload.hint}{Array.isArray(a.payload.annotations) && a.payload.annotations.length > 0 && <> · {a.payload.annotations.map((x: { annotation_id: string; session_id: string }) => <a key={x.annotation_id} href={`/sesion/${x.session_id}`} className="mr-2 text-meta">abrir sesión {x.session_id.slice(0, 8)}… (anotación {x.annotation_id.slice(0, 8)}…)</a>)}</>}</p>}</li>)}</ul> : <p className="text-sm text-muted">Ninguna.</p>}
       </Card>
       <Card>
         <h2 className="mb-2 font-semibold">Corridas recientes</h2>
