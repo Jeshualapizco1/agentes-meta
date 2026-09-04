@@ -37,6 +37,7 @@ Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de �
 - [x] Ventanas de evaluación por sesión a 72 h, 7 d y 14 d: campañas tocadas vs. resto de la cuenta, antes vs. después, solo días completos (core con pruebas; tabla `evaluation_windows`)
 - [ ] Entidad experimento con hipótesis y criterio de éxito declarados antes (propósito (b): veredicto automático contra el criterio)
 - [x] Definiciones por escrito en `docs/05-analista.md`; salvedades por ventana (presupuesto compartido, control pequeño, control inestable); narrativa con cita obligatoria de la fila de evidencia — 2026-09-03
+- [x] Segunda referencia por ventana (la campaña contra sí misma en los 7 días cerrados previos); veredicto con las dos lecturas: coinciden → confianza normal, una plana → indicio (tope media), se contradicen → mixto (tope baja) — 2026-09-04
 - [x] Paquete de evidencia determinista (`buildWeeklyEvidence`) + narrativa con Claude (claude-opus-5; requiere `ANTHROPIC_API_KEY` en secretos)
 - [x] Corrida automática los lunes 00:17 CDMX (cierre del domingo) en el mismo workflow del collector + botón "Forzar análisis" en /analisis
 - [x] Veredicto pendiente → preliminar → maduro por ventana; reporte en /analisis
@@ -49,7 +50,8 @@ Propósito (c) del proyecto: automatizar la operación. El destino es **auto con
 **Modelo de datos**
 - [ ] `rules`: reglas versionadas por cuenta (`kind`: scale | cut | pause | daypart | learning_alert; umbrales; candados propios; `mode` off | semi | auto; `version`; `approved_streak`; `promote_after` = N, default 10; historial de cambios).
 - [ ] `proposals`: propuesta con `rule_id` y versión, entidad objetivo, acción (`before` → `after`, p. ej. presupuesto 800 → 936), evidencia (referencias a filas: ventanas, insights, sesiones), candados verificados, `expires_at` (48 h), `status` pending | approved | rejected | expired | executed | rolled_back, `decided_by`, `decided_at`, `decision_note`, `corrected` (el aprobador cambió el monto = corrección).
-- [ ] Candados por cuenta (perfil): máximo % por cambio (hoy 17 %), espera mínima entre cambios a la misma entidad (72 h), tope de gasto diario, piso, lista blanca de campañas, noes duros. Una propuesta que viola un candado no se crea; se registra como `blocked` en `agent_runs.stats`.
+- [ ] Candados por cuenta (perfil): máximo % por cambio (hoy 17 %), **cambio acumulado máximo en una ventana de días (campo ya en el perfil: 35 % en 7 días por defecto)**, espera mínima entre cambios a la misma entidad (72 h), tope de gasto diario contra el **gasto real** (el collector ya lo calcula en cada pasada), piso, lista blanca de campañas, noes duros. Una propuesta que viola un candado no se crea; se registra como `blocked` en `agent_runs.stats`.
+- [ ] **Las reglas salen de `docs/06-criterio-operacion.md`** (cuestionario contestado por Eduardo), no del código: cada respuesta → fila versionada en `rules`.
 
 **Reglas v1** (una recomendación por semana que el equipo decida ejecutar)
 - [ ] Escalar: ventana 7d madura con confianza ≥ media, ROAS ≥ objetivo y `diff_roas_pts ≥ +10` sin salvedad de presupuesto compartido → subir presupuesto ≤ máximo por cambio.

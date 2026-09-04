@@ -16,7 +16,7 @@ Tres agentes:
 3. **Estratega** (Fase 4): highlights, cuándo escalar, recortar y hacer dayparting, como **propuestas** en una cola en Hoy (modo semi: aprobar/rechazar en un clic con razón). En Fase 4b un **ejecutor** aplica lo aprobado con write-ahead log y rollback, y cada regla pasa a **auto** cuando acumula N propuestas aprobadas sin corrección; cualquier rechazo, corrección o rollback la regresa a semi. Freno de emergencia por cuenta.
 Todo se ve en una app web muy visual (`apps/web`).
 
-Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis completo), `docs/01-benchmark-testmia.md` (ideas adoptadas de Testmia), `docs/02-accesos.md`, `docs/03-deploy-cron.md`, `docs/04-deploy-web.md`, **`docs/05-analista.md` (definiciones exactas de ventanas, umbrales, confianza, salvedades y reglas de la narrativa; si cambia el código, cambia el doc en el mismo commit)**.
+Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis completo), `docs/01-benchmark-testmia.md` (ideas adoptadas de Testmia), `docs/02-accesos.md`, `docs/03-deploy-cron.md`, `docs/04-deploy-web.md`, **`docs/05-analista.md` (definiciones exactas de ventanas, dos lecturas por ventana, umbrales, confianza, salvedades y reglas de la narrativa; si cambia el código, cambia el doc en el mismo commit)**, **`docs/06-criterio-operacion.md` (cuestionario de criterio para Eduardo: el estratega de la Fase 4 se construye leyendo ese documento como reglas, no inventándolas)**.
 
 ## Reglas de trabajo (no negociables)
 - **Idioma:** todo en español (código comentado en español, UI, docs, commits).
@@ -26,7 +26,9 @@ Documentos de fondo: `docs/00-analisis-viabilidad-y-roadmap.md` (análisis compl
 - **Nunca juzgar el día en curso.** Veredictos solo con días cerrados. Si un dato está incompleto, la UI lo dice; no se rellena con estimaciones.
 - **Lenguaje de los análisis:** "coincidió con", nunca "causó" (salvo A/B formal).
 - **Los agentes no escriben en Meta** hasta la Fase 4b. Cuando escriban, ninguna orden sale sin: (1) propuesta registrada con evidencia, (2) aprobación humana (modo semi) o regla en modo auto que se lo ganó (N aprobadas seguidas sin corrección), (3) candados verificados (máximo por cambio, espera, tope diario, lista blanca, noes duros), (4) write-ahead log (primero se registra la intención, luego sale la orden, luego se confirma), (5) rollback registrado y a un clic. Cualquier rechazo, corrección o rollback regresa la regla a semi; el freno de emergencia pone la cuenta en off.
-- **El control no siempre es independiente:** en cambios de presupuesto, mover una campaña mueve el gasto del resto (presupuesto compartido / CBO). El analista lo marca como salvedad y el reporte lo dice.
+- **El control no siempre es independiente:** Aromante 1 tiene una campaña dominante en CBO; mover su presupuesto mueve el gasto del resto. Por eso cada ventana tiene **dos lecturas** (frente al resto de la cuenta y la campaña frente a su propia semana previa): la confianza solo se queda alta cuando coinciden; si se contradicen el veredicto es "mixto" y lo dice. Las salvedades (presupuesto compartido, control inestable, control pequeño) no son ruido: son la cuenta. No subir esos umbrales para que "salga limpio".
+- **Lo que el agente nunca hace, en cualquier modo:** borrar; tocar creativo, segmentación, puja u objetivo; encender algo nuevo solo; reactivar lo que pausó una persona; operar si el día no cerró. Lista literal en `docs/01-benchmark-testmia.md` §6.
+- **El estratega no inventa criterio:** umbrales, esperas, lista blanca y noes salen de `docs/06-criterio-operacion.md` (respuestas de Eduardo) y del perfil de cuenta. El collector calcula en cada pasada el techo contra el gasto real de todas las campañas activas y contra el presupuesto activo (`agent_runs.stats.ceiling`).
 - Al terminar cada sesión de trabajo: actualizar `PENDIENTES.md` (hecho / siguiente / bloqueos) y commitear.
 
 ## Hechos técnicos que no se deducen del código
