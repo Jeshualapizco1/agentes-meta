@@ -2,11 +2,12 @@
  * Agente 1 · Collector. Idempotente y reejecutable.
  *  1. Refresca entidades (campañas, ad sets, anuncios) + snapshot del día.
  *  2. Baja activities nuevas (con traslape) y las inserta por huella (fingerprint).
- *  3. Reagrupa eventos → grupos → sesiones desde un corte con margen, borrando lo anterior en ese rango.
+ *  3. Reagrupa eventos → grupos → sesiones desde un corte con margen. IDs deterministas + upsert: una sesión conserva su ID
+ *     si no cambió su inicio; si cambió, las anotaciones se re-enlazan a la nueva antes de borrar la vieja.
  *  4. Insights diarios y por hora de Meta; ventas de Shopify si la cuenta tiene tienda y hay token.
  *  5. Registra la corrida en agent_runs y alertas si algo falla.
  */
-import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { normalize, groupEvents, groupSessions, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { ShopifyApiError, type ShopifyClient } from "@agentes-meta/shopify";
 import { upsertChunks, insertReturning, type Db } from "@agentes-meta/db";
@@ -86,11 +87,11 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   const inserted = (after ?? 0) - (before ?? 0);
 
   // 3. Reagrupar desde el corte (evento nuevo más antiguo − 6 h). Si no hubo nuevos, solo si nunca se agrupó.
-  let groups = 0, sessions = 0;
+  let groups = 0, sessions = 0, relinked = 0;
   const { count: grouped } = await db.from("change_sessions").select("*", { count: "exact", head: true }).eq("account_id", acc.id);
   if (inserted > 0 || !grouped) {
     const cutoff = inserted > 0 ? new Date(Math.min(...events.map(e => e.eventTime.getTime())) - 6 * 3600_000) : new Date(0);
-    ({ groups, sessions } = await regroup(db, acc.id, cutoff, ents));
+    ({ groups, sessions, relinked } = await regroup(db, acc.id, cutoff, ents));
   }
 
   // 4. Insights diarios (Fase 2). Falla por separado para no perder la bitácora.
@@ -117,45 +118,107 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
   // 5. Día sin cambios humanos → se registra explícitamente
   const cdmxToday = toZoned(now, CDMX).date;
   const humanToday = events.filter(e => e.actorKind === "person" && toZoned(e.eventTime, CDMX).date === cdmxToday).length;
-  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, shopify };
+  return { campaigns: camps.length, adsets: adsets.length, ads: ads.length, fetched: raw.length, inserted, groups, sessions, relinked, since: since.toISOString(), humanEventsTodayCdmx: humanToday, insights, shopify };
 }
 
-/** Rehace grupos y sesiones para eventos con event_time ≥ cutoff. */
-export async function regroup(db: Db, accountId: string, cutoff: Date, ents: EntityMap): Promise<{ groups: number; sessions: number }> {
+/**
+ * Rehace grupos y sesiones para eventos con event_time ≥ cutoff, sin perder anotaciones:
+ *  1. lee eventos del rango y calcula grupos/sesiones con IDs deterministas (core);
+ *  2. lee la membresía vieja (qué huellas tenía cada sesión/grupo del rango);
+ *  3. upsert de sesiones y grupos por id;
+ *  4. re-enlaza annotations y evaluation_windows cuyo id viejo desapareció al nuevo que contiene los mismos eventos
+ *     (respaldo: mismo actor y ventana de tiempo traslapada, por si una corrida anterior quedó a medias);
+ *  5. reasigna change_events.group_id (después del re-enlace: si esto falla, la siguiente corrida aún ve la membresía vieja);
+ *  6. borra las sesiones/grupos del rango que ya no existen (a estas alturas nadie los referencia).
+ */
+export async function regroup(db: Db, accountId: string, cutoff: Date, ents: EntityMap): Promise<{ groups: number; sessions: number; relinked: number }> {
   const iso = cutoff.toISOString();
-  // limpiar rango
-  let e1 = (await db.from("change_events").update({ group_id: null }).eq("account_id", accountId).gte("event_time", iso)).error; if (e1) throw new Error(e1.message);
-  e1 = (await db.from("change_groups").delete().eq("account_id", accountId).gte("started_at", iso)).error; if (e1) throw new Error(e1.message);
-  e1 = (await db.from("change_sessions").delete().eq("account_id", accountId).gte("started_at", iso)).error; if (e1) throw new Error(e1.message);
+  const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message); };
+  // select ... where col in (ids) por lotes de 200: PostgREST manda el filtro en la URL y con cientos de UUIDs falla
+  // lectura completa paginada (PostgREST corta en 1000 filas)
+  const selectAll = async <T>(build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }> }): Promise<T[]> => { const out: T[] = []; for (let from = 0; ; from += 1000) { const { data, error } = await build().range(from, from + 999); fail(error); out.push(...((data ?? []) as T[])); if (!data || data.length < 1000) break; } return out; };
+  const selectIn = async <T>(table: string, cols: string, col: string, ids: string[]): Promise<T[]> => { const out: T[] = []; for (let i = 0; i < ids.length; i += 200) { const { data, error } = await db.from(table).select(cols).in(col, ids.slice(i, i + 200)); fail(error); out.push(...((data ?? []) as T[])); } return out; };
 
-  // leer eventos del rango (paginado)
-  const all: (NormalizedEvent & { dbId: number })[] = [];
+  // 1. eventos del rango (paginado)
+  const all: (NormalizedEvent & { dbId: number; oldGroupId: string | null })[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from("change_events").select("id,event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_name,extra_data").eq("account_id", accountId).gte("event_time", iso).order("event_time").range(from, from + 999);
-    if (error) throw new Error(error.message);
+    const { data, error } = await db.from("change_events").select("id,group_id,event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_name,extra_data").eq("account_id", accountId).gte("event_time", iso).order("event_time").range(from, from + 999);
+    fail(error);
     for (const r of data ?? []) {
       const raw: RawActivity = { event_time: r.event_time, event_type: r.event_type, actor_id: r.actor_id, actor_name: r.actor_name, object_id: r.object_id, object_name: r.object_name, object_type: r.object_type, application_name: r.application_name ?? undefined, extra_data: r.extra_data ? JSON.stringify(r.extra_data) : undefined };
-      all.push({ ...normalize(accountId, raw), dbId: r.id as number });
+      all.push({ ...normalize(accountId, raw), dbId: r.id as number, oldGroupId: (r.group_id as string | null) ?? null });
     }
     if (!data || data.length < 1000) break;
   }
-  if (!all.length) return { groups: 0, sessions: 0 };
+  const groups = all.length ? groupEvents(all) : [];
+  const sessions = all.length ? groupSessions(groups, undefined, ents) : [];
+  const sessIds = sessions.map(s => sessionId(s));
+  const gIds = groups.map(g => groupId(g));
+  const newSessMembers = new Map(sessions.map((s, i) => [sessIds[i]!, s.groups.flatMap(g => g.events.map(e => e.fingerprint))]));
+  const newGroupMembers = new Map(groups.map((g, i) => [gIds[i]!, g.events.map(e => e.fingerprint)]));
 
-  const groups = groupEvents(all);
-  const sessions = groupSessions(groups, undefined, ents);
-  const sessRows = sessions.map(s => ({ account_id: accountId, actor_id: s.actorId, actor_name: s.actorName, actor_kind: s.actorKind, started_at: s.startedAt.toISOString(), ended_at: s.endedAt.toISOString(), kind: s.kind, significance: s.significance, resets_learning: s.resetsLearning, summary: s.summary, campaign_ids: s.campaignIds, group_count: s.counts.groups, event_count: s.counts.events, counts: s.counts }));
-  const sessIds = await insertReturning<{ id: string }>(db, "change_sessions", sessRows);
-  const groupRows: Record<string, unknown>[] = []; const groupRefs: typeof groups = [];
-  sessions.forEach((s, i) => { for (const g of s.groups) {
-    const cid = g.level === "campaign" ? g.objectId : (ents.get(g.objectId)?.campaignId ?? (g.parentId ? ents.get(g.parentId)?.campaignId : undefined) ?? null);
-    groupRows.push({ account_id: accountId, session_id: sessIds[i]!.id, actor_id: g.actorId, actor_name: g.actorName, actor_kind: g.actorKind, object_id: g.objectId, object_name: g.objectName, object_type: g.objectType, campaign_id: cid, started_at: g.startedAt.toISOString(), ended_at: g.endedAt.toISOString(), kind: g.kind, significance: g.significance, resets_learning: g.resetsLearning, summary: g.summary, details: g.details, event_count: g.events.length });
-    groupRefs.push(g);
-  } });
-  const groupIds = await insertReturning<{ id: string }>(db, "change_groups", groupRows);
-  // enlazar eventos → grupo (en paralelo por lotes)
-  const links = groupRefs.map((g, i) => ({ gid: groupIds[i]!.id, ids: g.events.map(e => (e as NormalizedEvent & { dbId: number }).dbId) }));
-  for (let i = 0; i < links.length; i += 25) {
-    await Promise.all(links.slice(i, i + 25).map(async l => { const { error } = await db.from("change_events").update({ group_id: l.gid }).in("id", l.ids); if (error) throw new Error(error.message); }));
+  // 2. membresía vieja del rango
+  const oldSess = await selectAll<{ id: string; actor_id: string | null; started_at: string; ended_at: string }>(() => db.from("change_sessions").select("id,actor_id,started_at,ended_at").eq("account_id", accountId).gte("started_at", iso).order("started_at"));
+  const oldGroups = await selectAll<{ id: string; session_id: string | null; actor_id: string | null; started_at: string; ended_at: string }>(() => db.from("change_groups").select("id,session_id,actor_id,started_at,ended_at").eq("account_id", accountId).gte("started_at", iso).order("started_at"));
+  const oldSessIds = oldSess.map(s => s.id), oldGroupIds = oldGroups.map(g => g.id);
+  const groupToSession = new Map(oldGroups.map(g => [g.id, g.session_id]));
+  const oldGroupMembers = new Map<string, string[]>(); const oldSessMembers = new Map<string, string[]>();
+  for (const id of oldGroupIds) oldGroupMembers.set(id, []);
+  for (const id of oldSessIds) oldSessMembers.set(id, []);
+  for (const e of all) {
+    if (!e.oldGroupId) continue;
+    oldGroupMembers.get(e.oldGroupId)?.push(e.fingerprint);
+    const sid = groupToSession.get(e.oldGroupId); if (sid) oldSessMembers.get(sid)?.push(e.fingerprint);
   }
-  return { groups: groups.length, sessions: sessions.length };
+
+  // 3. upsert sesiones y grupos; reasignar eventos
+  const sessRows = sessions.map((s, i) => ({ id: sessIds[i], account_id: accountId, actor_id: s.actorId, actor_name: s.actorName, actor_kind: s.actorKind, started_at: s.startedAt.toISOString(), ended_at: s.endedAt.toISOString(), kind: s.kind, significance: s.significance, resets_learning: s.resetsLearning, summary: s.summary, campaign_ids: s.campaignIds, group_count: s.counts.groups, event_count: s.counts.events, counts: s.counts }));
+  if (sessRows.length) await upsertChunks(db, "change_sessions", sessRows, "id");
+  const sessionOfGroup = new Map<ChangeGroupRef, string>();
+  sessions.forEach((s, i) => { for (const g of s.groups) sessionOfGroup.set(g, sessIds[i]!); });
+  const groupRows = groups.map((g, i) => {
+    const cid = g.level === "campaign" ? g.objectId : (ents.get(g.objectId)?.campaignId ?? (g.parentId ? ents.get(g.parentId)?.campaignId : undefined) ?? null);
+    return { id: gIds[i], account_id: accountId, session_id: sessionOfGroup.get(g) ?? null, actor_id: g.actorId, actor_name: g.actorName, actor_kind: g.actorKind, object_id: g.objectId, object_name: g.objectName, object_type: g.objectType, campaign_id: cid, started_at: g.startedAt.toISOString(), ended_at: g.endedAt.toISOString(), kind: g.kind, significance: g.significance, resets_learning: g.resetsLearning, summary: g.summary, details: g.details, event_count: g.events.length };
+  });
+  if (groupRows.length) await upsertChunks(db, "change_groups", groupRows, "id");
+
+  // 4. re-enlazar anotaciones y ventanas de evaluación (por huellas; respaldo por actor + ventana)
+  let relinked = 0;
+  const win = (rows: { id: string; actor_id: string | null; started_at: string; ended_at: string }[]) => rows.map(r => ({ id: r.id, actorId: r.actor_id ?? "", start: new Date(r.started_at), end: new Date(r.ended_at) }));
+  const mapS = relinkByEvents(oldSessMembers, newSessMembers), mapG = relinkByEvents(oldGroupMembers, newGroupMembers);
+  for (const [k, v] of relinkByWindow(win(oldSess), sessions.map((s, i) => ({ id: sessIds[i]!, actorId: s.actorId, start: s.startedAt, end: s.endedAt })))) if (!mapS.has(k)) mapS.set(k, v);
+  for (const [k, v] of relinkByWindow(win(oldGroups), groups.map((g, i) => ({ id: gIds[i]!, actorId: g.actorId, start: g.startedAt, end: g.endedAt })))) if (!mapG.has(k)) mapG.set(k, v);
+  const staleSess = oldSessIds.filter(id => !newSessMembers.has(id)), staleGroups = oldGroupIds.filter(id => !newGroupMembers.has(id));
+  if (staleSess.length) {
+    const notes = await selectIn<{ id: string; session_id: string; group_id: string | null }>("annotations", "id,session_id,group_id", "session_id", staleSess);
+    for (const n of notes) {
+      const to = mapS.get(n.session_id as string);
+      if (!to) throw new Error(`La anotación ${n.id} está en la sesión ${n.session_id}, que desaparecería sin sucesora. No se borra nada.`);
+      const patch: Record<string, unknown> = { session_id: to };
+      if (n.group_id && staleGroups.includes(n.group_id as string)) patch.group_id = mapG.get(n.group_id as string) ?? null;
+      const { error: ue } = await db.from("annotations").update(patch).eq("id", n.id); fail(ue); relinked++;
+    }
+  }
+  if (staleGroups.length) {
+    const notes = await selectIn<{ id: string; group_id: string }>("annotations", "id,group_id", "group_id", staleGroups);
+    for (const n of notes) { const { error: ue } = await db.from("annotations").update({ group_id: mapG.get(n.group_id as string) ?? null }).eq("id", n.id); fail(ue); relinked++; }
+    const wins = await selectIn<{ id: string; group_id: string }>("evaluation_windows", "id,group_id", "group_id", staleGroups);
+    for (const w of wins) {
+      const to = mapG.get(w.group_id as string);
+      if (!to) throw new Error(`La ventana de evaluación ${w.id} apunta al grupo ${w.group_id}, que desaparecería sin sucesor. No se borra nada.`);
+      const { error: ue } = await db.from("evaluation_windows").update({ group_id: to }).eq("id", w.id); fail(ue); relinked++;
+    }
+  }
+
+  // 5. reasignar eventos a sus grupos nuevos
+  const links = groups.map((g, i) => ({ gid: gIds[i]!, ids: g.events.filter(e => (e as typeof all[number]).oldGroupId !== gIds[i]).map(e => (e as typeof all[number]).dbId) })).filter(l => l.ids.length);
+  for (let i = 0; i < links.length; i += 25) {
+    await Promise.all(links.slice(i, i + 25).map(async l => { const { error } = await db.from("change_events").update({ group_id: l.gid }).in("id", l.ids); fail(error); }));
+  }
+
+  // 6. borrar lo viejo que ya no existe (grupos antes que sesiones por la FK)
+  for (let i = 0; i < staleGroups.length; i += 200) { const ids = staleGroups.slice(i, i + 200); fail((await db.from("change_events").update({ group_id: null }).in("group_id", ids)).error); fail((await db.from("change_groups").delete().in("id", ids)).error); }
+  for (let i = 0; i < staleSess.length; i += 200) fail((await db.from("change_sessions").delete().in("id", staleSess.slice(i, i + 200))).error);
+  return { groups: groups.length, sessions: sessions.length, relinked };
 }
+type ChangeGroupRef = ReturnType<typeof groupEvents>[number];
