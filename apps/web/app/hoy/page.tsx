@@ -71,10 +71,13 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
           </Kpi>
         </Card>
 
-        <Card span={4} eyebrow="Gasto y compras · últimos 7 días cerrados">
+        <Card span={4} eyebrow="Ingresos atribuidos por Meta · últimos 7 días">
           <div className="flex flex-col gap-5">
-            <Kpi label="" value={s7} prev={sp7} format={mxn0} higherIsBetter={false} />
-            <Kpi label="Compras" value={c7} prev={cp7} format={v => v.toFixed(0)} hint={v7 > 0 ? `valor ${mxn0(v7)}` : undefined} />
+            <Kpi label="" value={v7} prev={vp7} format={mxn0} hint="valor de las compras que Meta atribuye" />
+            <div className="grid grid-cols-2 gap-4">
+              <Kpi label="Gasto" value={s7} prev={sp7} format={mxn0} higherIsBetter={false} />
+              <Kpi label="Compras" value={c7} prev={cp7} format={v => v.toFixed(0)} />
+            </div>
           </div>
         </Card>
 
