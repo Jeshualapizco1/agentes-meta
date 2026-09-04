@@ -10,7 +10,7 @@
 import { strategistWatch, strategistPass } from "./strategist.js";
 import { notifyPending, telegramFromEnv } from "./telegram.js";
 import { executeApproved } from "./executor.js";
-import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
+import { normalize, groupEvents, groupSessions, campaignOf, parseName, namingIssues, toZoned, CDMX, sessionId, groupId, relinkByEvents, relinkByWindow, planRelink, ceilingCheck, entityMapFromRows, unresolvedObjectIds, isOwnOrder, type SentExecution, type CeilingCheck, type EntityRow, type RelinkRow, type RelinkWindowRow, type RawActivity, type NormalizedEvent, type EntityMap } from "@agentes-meta/core";
 import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, fetchAll, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
@@ -228,6 +228,15 @@ export async function regroup(db: Db, accountId: string, cutoff: Date, ents: Ent
   for (const r of await fetchAll<EvRow>(() => db.from("change_events").select("id,group_id,event_time,event_type,actor_id,actor_name,object_id,object_name,object_type,application_name,extra_data").eq("account_id", accountId).gte("event_time", iso).order("event_time"))) {
     const raw: RawActivity = { event_time: r.event_time, event_type: r.event_type, actor_id: r.actor_id ?? undefined, actor_name: r.actor_name ?? undefined, object_id: r.object_id, object_name: r.object_name, object_type: r.object_type, application_name: r.application_name ?? undefined, extra_data: r.extra_data ? JSON.stringify(r.extra_data) : undefined };
     all.push({ ...normalize(accountId, raw), dbId: r.id, oldGroupId: r.group_id ?? null });
+  }
+  // órdenes propias ya enviadas de verdad: Meta las devuelve en activities con el actor dueño del token; se reetiquetan como
+  // Estratega (mismo objeto, mismo valor nuevo, dentro de la ventana de envío) para no duplicarlas ni atribuirlas a una persona
+  if (all.length) {
+    const sent = await fetchAll<{ order_payload: Record<string, unknown>; sent_at: string }>(() => db.from("executions").select("order_payload,sent_at").eq("account_id", accountId).eq("dry_run", false).in("state", ["enviada", "confirmada"]).gte("sent_at", new Date(cutoff.getTime() - 86400_000).toISOString()));
+    const sentList: SentExecution[] = sent.flatMap((x): SentExecution[] => { const o = x.order_payload; return o.op === "pausar_anuncio" ? [{ entity_id: String(o.ad_id), sent_at: x.sent_at, new_value: "8", kind: "status" as const }, { entity_id: String(o.ad_id), sent_at: x.sent_at, new_value: "15", kind: "status" as const }] : o.op === "cambiar_presupuesto" ? [{ entity_id: String(o.entity_id), sent_at: x.sent_at, new_value: Number(o.daily_budget_cents), kind: "budget" as const }] : []; });
+    let own = 0;
+    if (sentList.length) for (const e of all) if (e.actorKind === "person" && isOwnOrder(e, sentList)) { e.actorKind = "agent"; e.actorId = "strategist"; e.actorName = "Estratega"; own++; }
+    if (own) log(`  ↻ ${own} evento(s) reconocidos como órdenes propias del estratega`);
   }
   const groups = all.length ? groupEvents(all) : [];
   // objetos cuya campaña no se resuelve ni por jerarquía: consultarlos a Meta por id (borrados incluidos) antes de armar sesiones
