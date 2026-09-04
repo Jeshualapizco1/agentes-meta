@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 /**
  * Selector de periodo para formularios GET: atajos (últimos N días) o "Personalizado" con calendario de fecha inicio y fin
@@ -9,6 +9,9 @@ export function DateRange({ days, from, to, presets = [7, 14, 30, 90], label = "
   const [custom, setCustom] = useState(!!from);
   const [a, setA] = useState(from ?? "");
   const [b, setB] = useState(to ?? "");
+  const endRef = useRef<HTMLInputElement>(null);
+  // al elegir la fecha inicio se abre de inmediato el calendario de la fecha fin
+  const pickStart = (v: string) => { setA(v); if (v && !b) setB(""); requestAnimationFrame(() => { const el = endRef.current; if (!el) return; el.focus(); try { (el as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* el navegador exige gesto del usuario; queda enfocado */ } }); };
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="flex flex-wrap items-end gap-2">
@@ -20,8 +23,8 @@ export function DateRange({ days, from, to, presets = [7, 14, 30, 90], label = "
       </label>
       {custom && (
         <>
-          <label className="flex flex-col gap-1 text-xs text-muted">Desde<input type="date" name="from" required value={a} max={b || today} onChange={e => setA(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
-          <label className="flex flex-col gap-1 text-xs text-muted">Hasta<input type="date" name="to" required value={b} min={a || undefined} max={today} onChange={e => setB(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
+          <label className="flex flex-col gap-1 text-xs text-muted">Desde<input type="date" name="from" required value={a} max={b || today} onChange={e => pickStart(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
+          <label className="flex flex-col gap-1 text-xs text-muted">Hasta<input ref={endRef} type="date" name="to" required value={b} min={a || undefined} max={today} onChange={e => setB(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
         </>
       )}
     </div>
