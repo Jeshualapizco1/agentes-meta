@@ -7,7 +7,8 @@ Actualizar al final de cada sesión. Arriba lo más urgente.
 - [x] Recuperada la sesión interrumpida: generador de criterios estructurados, `/decisiones`, revisiones de oportunidades y aprobación/corrección/rechazo en simulación desde Hoy. Evidencia y límites en [docs/14-decisiones-operativas-codex.md](docs/14-decisiones-operativas-codex.md).
 - [x] Migraciones 0020/0021 instaladas en Supabase tras 82 pruebas SQL; copia local previa de perfiles/historial e igualdad de valores comprobada. Solo backend autorizado para las nuevas funciones.
 - [x] Lectura real con el adaptador de la pantalla: cuatro campañas de Aromante 1 requieren revisión; todas con siete días cerrados. Sin criterios financieros inventados, reglas activadas ni órdenes a Meta.
-- [x] Regresión del inventario de migraciones corregida y 23 pruebas nuevas de acciones. 364 web, 108 core, 8 DB unitarias, 82 SQL y 49 visuales aprobadas; una omitida histórica en core. Tipos/build aprobados.
+- [x] Regresión del inventario de migraciones corregida, 23 pruebas nuevas de acciones y 3 de envíos del formulario con React. 367 web, 108 core, 8 DB unitarias, 82 SQL y 49 visuales aprobadas; una omitida histórica en core. Tipos/build aprobados.
+- [x] Avance recuperado publicado en `08060a7` con CI completo aprobado. Corregida además la intención de los botones de evaluar, guardar borrador y activar: React sobrescribía el nombre si el botón tenía su propio `formAction`.
 - [ ] Entrar a `http://127.0.0.1:3000/decisiones` para revisar la interfaz autenticada y registrar la primera decisión del operador.
 - [ ] Definir y evaluar los criterios de una primera regla; actualmente hay cero reglas estructuradas activas. Guardar exige administrador; las propuestas resultantes se revisan en Hoy en simulación.
 - [ ] Continuar cobertura/frescura, aislamiento por cuenta, seguimiento de resultados y garantías del ejecutor según el roadmap. No habilitar dinero real como consecuencia de cerrar la interfaz.

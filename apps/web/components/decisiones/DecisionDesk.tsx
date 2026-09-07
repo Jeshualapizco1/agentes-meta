@@ -35,15 +35,17 @@ function Opportunity({ opportunity: o, account, currency }: { opportunity: Decis
   </article>;
 }
 function PolicyEditor({ account, rule, admin, maxPct }: { account: string; rule?: WorkspaceRule; admin: boolean; maxPct: number }) {
-  const [preview, previewAction, evaluating] = useActionState(previewDecisionPolicy, emptyDecisionResult);
-  const [saved, saveAction, saving] = useActionState(saveDecisionPolicy, emptyDecisionResult);
+  // Un único action conserva name/value del botón pulsado. React sobrescribe name
+  // cuando el propio botón lleva una función en formAction.
+  const [result, submitPolicy, pending] = useActionState(async (previous: DecisionFormResult, form: FormData) =>
+    form.get("intent") === "preview" ? previewDecisionPolicy(previous, form) : saveDecisionPolicy(previous, form), emptyDecisionResult);
   const condition = rule?.condition ?? {};
   const [action, setAction] = useState(rule?.action ?? "bajar_presupuesto");
   const [metric, setMetric] = useState(String(condition.metric ?? "roas"));
   const [fields, setFields] = useState<Record<string, string>>({ name: rule?.name ?? "", level: String(condition.level ?? "campaign"), operator: String(condition.operator ?? "lt"), threshold: String(condition.threshold ?? ""), days: String(condition.days ?? 7), minPurchases: String(condition.minPurchases ?? ""), minSpend: String(condition.minSpend ?? ""), changePct: String(condition.changePct ?? "") });
   const [consecutive, setConsecutive] = useState(condition.consecutive === true);
   const field = (key: string, label: string, max?: number) => <label className="block text-sm">{label}<input name={key} value={fields[key]} onChange={e => setFields({ ...fields, [key]: e.target.value })} type={key === "name" ? "text" : "number"} min={key === "days" ? 1 : 0} max={max} step={["days", "minPurchases"].includes(key) ? "1" : "any"} required className="mt-1 w-full border p-2" /></label>;
-  return <form action={previewAction} className="mt-4 space-y-4">
+  return <form action={submitPolicy} className="mt-4 space-y-4">
     <input type="hidden" name="account" value={account} /><input type="hidden" name="ruleId" value={rule?.id ?? ""} /><input type="hidden" name="version" value={rule?.version ?? ""} />
     <p className="text-sm text-muted">Los campos son una política que tú debes revisar, no una recomendación financiera automática. El agente aplicará exactamente estos criterios.</p>
     <div className="grid gap-4 sm:grid-cols-2">{field("name", "Nombre de la regla")}
@@ -55,8 +57,8 @@ function PolicyEditor({ account, rule, admin, maxPct }: { account: string; rule?
     </div>
     {metric !== "spend_without_purchases" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="consecutive" checked={consecutive} onChange={e => setConsecutive(e.target.checked)} />Exigir el umbral en cada día, además del total</label>}
     {admin && <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="acknowledge" />Revisé estos criterios y las restricciones de mi cuenta; autorizo usarlos solo para propuestas en simulación.</label>}
-    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={evaluating || saving}>Evaluar con datos reales</Button>{admin && <><Button type="submit" formAction={saveAction} name="intent" value="draft" disabled={saving || evaluating}>Guardar borrador</Button><Button type="submit" formAction={saveAction} name="intent" value="activate" disabled={saving || evaluating}>Usar en simulación</Button></>}</div>
-    <Feedback result={saved} /><Feedback result={preview} /><Evaluation preview={preview.preview} />
+    <div className="flex flex-wrap gap-2"><Button type="submit" name="intent" value="preview" disabled={pending}>Evaluar con datos reales</Button>{admin && <><Button type="submit" name="intent" value="draft" disabled={pending}>Guardar borrador</Button><Button type="submit" name="intent" value="activate" disabled={pending}>Usar en simulación</Button></>}</div>
+    <Feedback result={result} /><Evaluation preview={result.preview} />
   </form>;
 }
 type Props = { account: { id: string; name: string; currency: string; timezone_name: string }; accounts: { id: string; name: string }[]; admin: boolean; profile: WorkspaceProfile; opportunities: DecisionOpportunity[]; rules: WorkspaceRule[]; reviews: { id: string; entity_id: string; rationale: string | null; status: string; decided_by: string | null; decided_at: string | null }[]; evaluation: NonNullable<DecisionFormResult["preview"]>; today: string };

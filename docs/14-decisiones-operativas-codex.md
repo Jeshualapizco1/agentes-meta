@@ -40,10 +40,12 @@ Recuperación: las ampliaciones son compatibles con el código anterior; si hay 
 
 ## Verificación y límites
 
-- 364 pruebas web, incluidas 23 de las nuevas acciones; 108 pruebas core aprobadas y una omitida preexistente; 8 del plan de migraciones; 82 de integración PostgreSQL.
+- 367 pruebas web, incluidas 23 de las nuevas acciones y 3 de envío del formulario con React; 108 pruebas core aprobadas y una omitida preexistente; 8 del plan de migraciones; 82 de integración PostgreSQL.
 - Tipos y build Next aprobados; `/decisiones` aparece como ruta dinámica protegida. Laboratorio visual compilado y sus 49 regresiones Chromium aprobadas (fixtures de componentes, shell y Hoy; no prueban una sesión real de Decisiones).
 - Navegador conectado: `/decisiones` devuelve al login con retorno a la ruta solicitada. La revisión visual autenticada requiere que el usuario entre con su cuenta; no se fabricaron sesiones ni se usaron sus credenciales del navegador.
 - La nueva mesa usa datos reales y puede persistir decisiones, pero no se han habilitado reglas financieras, enviado notificaciones ni ejecutado cambios en Meta durante este trabajo.
+- Corregido un detalle de React 19: `formAction` en el botón sobrescribía `name="intent"`. Un único action en el formulario conserva las tres intenciones (evaluar, borrador, activar), comprobadas con envíos reales en React/jsdom.
+- El avance recuperado se publicó en `08060a7`; [CI completo aprobado](https://github.com/Jeshualapizco1/agentes-meta/actions/runs/34085662474). La corrección final del formulario se registra en el commit siguiente.
 - No equivale a completar los 40 bloques del roadmap. Continúan pendientes aislamiento granular por cuenta, contrato completo de cobertura, reconciliación, recuperación del ejecutor, evaluación posterior de resultados y habilitación de dinero real.
 
 La aplicación se inicia con `corepack pnpm --filter @agentes-meta/web dev` y queda disponible en `http://127.0.0.1:3000/decisiones`. Una publicación de código no demuestra por sí sola que Netlify esté desplegado ni que el collector haya ejecutado una regla nueva.
