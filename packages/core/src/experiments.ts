@@ -18,12 +18,12 @@ export function validateExperiment(d: ExperimentDraft): string[] {
   const errs: string[] = [];
   if (!d.hypothesis?.trim()) errs.push("Falta la hipótesis.");
   if (d.metric !== "roas" && d.metric !== "cpa") errs.push("Falta la métrica objetivo (ROAS o CPA).");
-  if (d.threshold == null || !(d.threshold > 0)) errs.push("Falta el umbral del criterio de éxito.");
-  if (d.min_purchases == null || d.min_purchases < 1) errs.push("Faltan las compras mínimas del criterio.");
-  if (d.window_days == null || d.window_days < 1) errs.push("Falta la ventana de evaluación en días cerrados.");
-  if (d.budget == null || !(d.budget > 0)) errs.push("Falta el presupuesto asignado.");
+  if (d.threshold == null || !Number.isFinite(d.threshold) || !(d.threshold > 0)) errs.push("Indica una meta mayor que cero.");
+  if (d.min_purchases == null || !Number.isInteger(d.min_purchases) || d.min_purchases < 1) errs.push("Indica al menos una compra mínima, sin decimales.");
+  if (d.window_days == null || !Number.isInteger(d.window_days) || d.window_days < 1 || d.window_days > 90) errs.push("La duración debe ser de 1 a 90 días completos.");
+  if (d.budget == null || !Number.isFinite(d.budget) || !(d.budget > 0)) errs.push("Indica un presupuesto mayor que cero.");
   if (!d.campaign_ids.length) errs.push("Falta al menos una campaña vinculada.");
-  if (!d.start_date) errs.push("Falta la fecha de inicio.");
+  if (!d.start_date || !/^\d{4}-\d{2}-\d{2}$/.test(d.start_date) || !Number.isFinite(Date.parse(d.start_date)) || new Date(d.start_date).toISOString().slice(0, 10) !== d.start_date) errs.push("Indica una fecha de inicio válida.");
   return errs;
 }
 

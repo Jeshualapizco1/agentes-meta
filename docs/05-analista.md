@@ -282,6 +282,14 @@ ese criterio (código en `packages/core/src/experiments.ts`, pruebas en `experim
 
 ## 11. Dónde vive cada cosa
 
+### Actualización de interfaz y entradas · 2026-09-07
+
+La navegación muestra **Pruebas** y mantiene la ruta `/experimentos`. El alta usa un asistente de tres pasos; “Conservar aprendizaje” guarda `graduado` y “No repetir” guarda `descartado`, sin mover presupuesto en Meta. La evidencia del veredicto continúa disponible en un desplegable.
+
+El criterio exige umbral y presupuesto finitos mayores que cero, compras mínimas enteras positivas, duración entera de 1 a 90 días y fecha válida. El formulario conserva errores y permite completar borradores. El cálculo del analista no cambió: excluye el día del cambio y el día en curso; la fecha de lectura presentada es inicio + duración + 1.
+
+Desde una sesión se conserva la hipótesis y las campañas de origen; revisa la fecha del cambio antes de iniciar. Desde anuncios se muestra el anuncio de origen, pero se evalúa su campaña, no un A/B de creativos. Alcance completo en [pruebas guiadas](15-pruebas-guiadas-codex.md).
+
 | Qué | Dónde |
 |---|---|
 | Ventanas, deltas, confianza, salvedades, umbrales | `packages/core/src/evaluation.ts` (`evaluateChange`, constantes exportadas) |

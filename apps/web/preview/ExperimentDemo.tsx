@@ -1,0 +1,4 @@
+import { ExperimentWizard } from "../components/experimentos/ExperimentWizard";
+export function ExperimentDemo() {
+  return <main className="mx-auto max-w-3xl p-4 sm:p-8"><p className="mb-4 text-sm text-muted">Laboratorio · datos ficticios · sin conexión a Meta</p><h1 className="mb-6 text-3xl font-semibold">Prepara tu próxima prueba.</h1><ExperimentWizard account="100" today="2026-09-07" remaining={500} selected={["200"]} campaigns={[{ id: "200", name: "Prospección · nuevos clientes" }, { id: "201", name: "Remarketing · campaña con nombre extenso para comprobar lectura en móvil" }]} action={async (_previous, form) => ({ error: form.get("intent") === "activar" ? "Ensayo completado. No se guardó nada en una cuenta real." : "Borrador de ensayo. Tus datos siguen aquí; no se guardó en una cuenta real." })} /></main>;
+}

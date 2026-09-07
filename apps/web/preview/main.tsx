@@ -16,6 +16,7 @@ import { Sparkline } from "../components/Sparkline";
 import { movements, period, series } from "./fixtures";
 import { ShellDemo } from "./ShellDemo";
 import { HoyDemo } from "./HoyDemo";
+import { ExperimentDemo } from "./ExperimentDemo";
 
 const money = (value: number) => `$${value.toLocaleString("es-MX", { maximumFractionDigits: 0 })}`;
 function Brand() { return <a href="#resumen" className="demo-brand"><span className="demo-brand-mark" aria-hidden="true">a<span>m</span></span><span>Agentes Meta<small>INTELIGENCIA OPERATIVA</small></span></a>; }
@@ -109,4 +110,4 @@ function Demo() {
     </div>
   </>;
 }
-createRoot(document.getElementById("root")!).render(window.location.pathname === "/" ? <Demo /> : window.location.pathname === "/hoy" ? <HoyDemo /> : <ShellDemo />);
+createRoot(document.getElementById("root")!).render(window.location.pathname === "/" ? <Demo /> : window.location.pathname === "/hoy" ? <HoyDemo /> : window.location.pathname === "/prueba-guiada" ? <ExperimentDemo /> : <ShellDemo />);

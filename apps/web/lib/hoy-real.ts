@@ -6,7 +6,7 @@ export type RealInsight = { date: string; spend: unknown; purchases: unknown; pu
 export type RealProposal = { id: string; account_id: string; rule_name: string | null; action: string; entity_name: string | null; entity_level: string; entity_id: string; before_value: unknown; after_value: unknown; move_to_entity_id?: string | null; move_to_before?: unknown; evidence: unknown; locks: unknown; created_at: string; expires_at: string | null };
 export type RealDecision = { id: string; status: string; action: string; entity_name: string | null; before_value: unknown; after_value: unknown; decided_at: string | null; decision_reason?: string | null; execution_note: string | null };
 export type RealRun = { started_at: string; finished_at: string | null; status: string; stats?: unknown };
-export type RealProfile = { mode: string; dry_run: boolean };
+export type RealProfile = { mode: string; dry_run: boolean; target_roas?: number | null };
 export type RealBrake = { active: boolean; engage_reason: string | null };
 
 const record = (value: unknown): Record<string, unknown> | null => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;

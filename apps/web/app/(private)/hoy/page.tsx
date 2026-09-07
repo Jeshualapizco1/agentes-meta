@@ -37,7 +37,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   const activitySince = new Date(now.getTime() - 14 * 86_400_000).toISOString();
   const [insights, profile, proposals, decisions, alerts, activity, brake, collector, strategist] = await Promise.all([
     safePaged<RealInsight>(() => sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day,fetched_at").eq("account_id", account.id).eq("level", "campaign").gte("date", from).lte("date", to).order("date")),
-    safe<RealProfile>(sb.from("account_profiles").select("mode,dry_run").eq("account_id", account.id).maybeSingle()),
+    safe<RealProfile>(sb.from("account_profiles").select("mode,dry_run,target_roas").eq("account_id", account.id).maybeSingle()),
     safePaged<RealProposal>(() => sb.from("proposals").select("id,account_id,rule_name,action,entity_name,entity_level,entity_id,before_value,after_value,move_to_entity_id,move_to_before,evidence,locks,created_at,expires_at").eq("account_id", account.id).eq("status", "pendiente").order("created_at", { ascending: false })),
     safe<RealDecision[]>(sb.from("proposals").select("id,status,action,entity_name,before_value,after_value,decided_at,decision_reason,execution_note").eq("account_id", account.id).in("status", ["aprobada", "simulada", "ejecutada", "fallida", "rechazada"]).order("decided_at", { ascending: false }).limit(8)),
     safe<{ id: string; kind: string; severity: string; message: string; created_at: string }[]>(sb.from("alerts").select("id,kind,severity,message,created_at").is("acknowledged_at", null).or(`account_id.eq.${account.id},account_id.is.null`).order("created_at", { ascending: false }).limit(8)),
@@ -50,5 +50,5 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
     account, reportingDate, asOf: now.toISOString(), insights, profile,
     proposals, decisions: arrayResult(decisions), alerts: arrayResult(alerts), activity: arrayResult(activity), brake, collector, strategist,
   });
-  return <HoyLive snapshot={snapshot} accounts={accounts.map(item => ({ id: item.id, name: item.name }))} />;
+  return <HoyLive snapshot={snapshot} targetRoas={profile.data?.target_roas == null ? null : Number(profile.data.target_roas)} accounts={accounts.map(item => ({ id: item.id, name: item.name }))} />;
 }

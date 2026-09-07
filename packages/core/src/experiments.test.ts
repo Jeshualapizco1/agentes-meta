@@ -10,10 +10,17 @@ function rows(aRoasAfter: number, bRoasAfter: number): DailyRow[] {
 const full: ExperimentDraft = { hypothesis: "Un video UGC baja el CPA", metric: "cpa", threshold: 180, min_purchases: 20, window_days: 7, budget: 500, campaign_ids: ["A"], start_date: "2026-08-10" };
 
 describe("experimentos", () => {
+  it.each([
+    { threshold: Infinity }, { budget: NaN }, { min_purchases: 1.5 },
+    { window_days: 0.5 }, { window_days: 91 }, { start_date: "2026-02-30" },
+    { start_date: "mañana" },
+  ])("rechaza criterios no medibles: %j", invalid => {
+    expect(validateExperiment({ ...full, ...invalid }).length).toBeGreaterThan(0);
+  });
   it("no se activa sin hipótesis, criterio de éxito y presupuesto", () => {
     expect(validateExperiment(full)).toEqual([]);
     const errs = validateExperiment({ ...full, hypothesis: " ", metric: null, threshold: null, budget: null });
-    expect(errs).toEqual([expect.stringMatching(/hipótesis/), expect.stringMatching(/métrica/), expect.stringMatching(/umbral/), expect.stringMatching(/presupuesto/)]);
+    expect(errs).toEqual([expect.stringMatching(/hipótesis/), expect.stringMatching(/métrica/), expect.stringMatching(/meta/), expect.stringMatching(/presupuesto/)]);
     expect(validateExperiment({ ...full, min_purchases: 0, window_days: null, campaign_ids: [] })).toHaveLength(3);
   });
   it("presupuesto de exploración excedido: techo 15,000 × 10 % = 1,500; activos 1,300 + nuevo 300 no cabe, 200 sí", () => {

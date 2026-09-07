@@ -11,7 +11,7 @@ test.beforeEach(async ({ context, page }) => {
     await route.continue();
   });
   await page.goto("/hoy?account=100"); await page.evaluate(() => document.fonts.ready);
-  await expect(page.getByRole("heading", { name: "Lo importante, primero." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Haz que cada prueba cuente." })).toBeVisible();
 });
 async function review(page: Page) {
   await page.getByRole("button", { name: "Revisar propuesta: Ajustar presupuesto diario", exact: true }).click();
@@ -123,6 +123,7 @@ test("liberar requiere admin y motivo, y no reactiva automáticamente al agente"
   const button = page.getByRole("button", { name: "Simular liberación del freno" }); await expect(button).toBeDisabled();
   await page.getByLabel("Razón (obligatoria)", { exact: true }).fill("Revisión de ejemplo completada."); await button.click();
   await expect(page.getByText("Freno liberado solo en la demo. El agente permanece detenido; no se reanudó ninguna ejecución.", { exact: true })).toBeVisible();
+  await page.locator("#hoy-agent summary").click();
   await expect(page.locator("#hoy-agent").getByText("Agente detenido", { exact: true })).toBeVisible();
 });
 test("todos los escenarios son renderizables sin excepciones de página", async ({ page }) => {
@@ -135,7 +136,7 @@ test("un escenario de URL desconocido usa el ejemplo permitido, sin claves hered
   for (const scenario of ["inexistente", "toString", "__proto__"]) {
     await page.goto(`/hoy?account=100&scenario=${scenario}`); await tools(page);
     await expect(page.getByLabel("Estado de ejemplo")).toHaveValue("simulation");
-    await expect(page.getByRole("heading", { name: "Lo importante, primero." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Haz que cada prueba cuente." })).toBeVisible();
   }
 });
 
@@ -145,7 +146,7 @@ test("una cuenta de URL desconocida ofrece recuperación sin mostrar otra silenc
   await expect(page.locator(".hoy-kpis")).toHaveCount(0);
   await page.getByRole("link", { name: "Volver al piloto" }).click();
   await expect(page).toHaveURL(/account=100$/);
-  await expect(page.getByRole("heading", { name: "Lo importante, primero." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Haz que cada prueba cuente." })).toBeVisible();
 });
 test("capturas del piloto Hoy y su panel real renderizado", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1100 });

@@ -33,13 +33,13 @@ export function navigationHref(destination: string, pathname: string, search: st
 export const NAV_GROUPS = [
   { label: "Operación", items: [
     { href: "/hoy", label: "Hoy", icon: "hoy" },
+    { href: "/experimentos", label: "Pruebas", icon: "experimentos" },
     { href: "/anuncios", label: "Anuncios", icon: "anuncios" },
-    { href: "/bitacora", label: "Bitácora", icon: "bitacora" },
   ] },
   { label: "Análisis", items: [
     { href: "/cuenta", label: "Rendimiento", icon: "cuenta" },
     { href: "/analisis", label: "Aprendizajes", icon: "analisis" },
-    { href: "/experimentos", label: "Experimentos", icon: "experimentos" },
+    { href: "/bitacora", label: "Bitácora", icon: "bitacora" },
   ] },
 ] as const;
 export function isNavActive(href: string, pathname: string): boolean {

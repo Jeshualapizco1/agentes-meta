@@ -73,7 +73,7 @@ test("administración secundaria y usuarios solo en la presentación admin", asy
 test("Hoy no ofrece un selector de fechas sin efecto", async ({ page }) => {
   await page.goto("/hoy?account=100");
   await expect(page.getByLabel("Periodo", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("El día en curso queda fuera", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Ventana de 7 días cerrados/)).toBeVisible();
 });
 test("acceso público sin navegación privada ni sesión inventada", async ({ page }) => {
   await page.goto("/login");

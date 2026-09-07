@@ -2,6 +2,20 @@
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
+## Plataforma orientada a pruebas — 2026-09-07
+
+- [x] Hoy simplificado: meta de ROAS del perfil, distancia al objetivo con lectura completa, acceso a oportunidades y pruebas; actividad técnica desplegable.
+- [x] Anuncios deja de exigir el check de “revisado”: tabla centrada en gasto, compras, ROAS y CPA; preparar prueba conserva cuenta, campaña y anuncio de origen. No se borró el historial de revisiones.
+- [x] Decisiones prioriza campañas y preparar pruebas; reglas, propuestas y registro histórico quedan en detalles avanzados.
+- [x] Pruebas en tres pasos con criterio, fecha, presupuesto y confirmación; borradores editables, errores recuperables y resultado/meta/compras visibles. Conserva rutas existentes.
+- [x] Validación de números finitos, días enteros y fechas; campañas/sesiones de la misma cuenta; actualización de borradores y veredictos condicionada al estado. 15 pruebas nuevas de acciones y 7 de core.
+- [x] 382 pruebas web, 115 core (una omitida histórica), 8 DB y 53 de navegador aprobadas. Compilación Next y laboratorio aprobadas; inspección visual del asistente con datos ficticios.
+- [ ] Probar el guardado autenticado de una primera prueba elegida por el operador. La base tiene cero pruebas reales; no se insertaron datos de ensayo en producción.
+- [ ] Desplegar esta versión en Netlify y validar sesión/guardado en ese entorno; commit/push no equivale a despliegue.
+- [ ] Para evaluar el objetivo de duplicar ROAS: fijar una línea base durable, fecha objetivo y seguimiento agregado. La meta actual configurada es 6, no una promesa de duplicación. El límite de pruebas es planificación, no un tope de gasto aplicado en Meta; falta reserva transaccional frente a altas simultáneas.
+
+Detalle de alcance y límites: [docs/15-pruebas-guiadas-codex.md](docs/15-pruebas-guiadas-codex.md).
+
 ## Retoma de la mesa de decisiones — 2026-09-06
 
 - [x] Recuperada la sesión interrumpida: generador de criterios estructurados, `/decisiones`, revisiones de oportunidades y aprobación/corrección/rechazo en simulación desde Hoy. Evidencia y límites en [docs/14-decisiones-operativas-codex.md](docs/14-decisiones-operativas-codex.md).
