@@ -1,5 +1,7 @@
 # ROADMAP · agentes Meta
 
+> Actualización del 2026-09-05: el plan unificado posterior a las auditorías está en [roadmapImplementacionCodex.md](roadmapImplementacionCodex.md). Incluye seguridad, datos, agentes, frontend y operación. El contenido siguiente se conserva como roadmap histórico: sus checks y estimación original no demuestran que los hallazgos posteriores estén cerrados ni autorizan activar ejecución real.
+
 Estimación v1: 8 a 9 semanas desde el 2026-09-03. Cada fase tiene criterio de éxito. Marca `[x]` al cerrar.
 
 ## Fase 0 · Spike y accesos (2-3 días) — cerrada 2026-09-03

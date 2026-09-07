@@ -31,7 +31,7 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
       <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={title}
         onMouseLeave={() => setHover(null)}>
-        <defs><linearGradient id={`ts-${title.replace(/\W+/g, "-")}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#a78bfa" /></linearGradient></defs>
+        <defs><linearGradient id={`ts-${title.replace(/\W+/g, "-")}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="var(--color-data-roas)" /><stop offset="100%" stopColor="var(--color-data-roas)" /></linearGradient></defs>
         <g
         onMouseMove={e => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * W; let best = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i]! - x) < Math.abs(xs[best]! - x)) best = i; setHover(best); }}>
         {ticks.map(t => <g key={t}><line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" /><text x={padL - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{format(t)}</text></g>)}
@@ -44,7 +44,7 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
             <circle cx={xs[i]} cy={cy} r="5" fill={resets ? "var(--color-amber)" : "var(--color-ink)"} stroke="var(--color-surface-solid)" strokeWidth="2" />
             {ms.length > 1 && <text x={xs[i]} y={cy - 9} textAnchor="middle" fontSize="10" fill="var(--color-muted)" fontFamily="var(--font-mono)">{ms.length}</text>}
           </g>); })}
-        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
+        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={padT} y2={padT + ih} stroke="var(--color-muted)" strokeWidth="1" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="var(--color-data-roas)" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
         </g>
       </svg>
       {h && <Tip x={(xs[hover!]! / W) * 100} y={((h.value != null ? y(h.value) : padT + ih) / H) * 100} date={h.date} value={h.value != null ? format(h.value) : "sin dato"} extra={[...(h.closed ? [] : ["día en curso"]), ...(byDate.get(hover!) ? [`${byDate.get(hover!)!.length} cambio(s)`] : [])]} />}

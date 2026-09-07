@@ -2,6 +2,10 @@
 
 Fecha: 5 de septiembre de 2026. Revisión realizada por Codex a solicitud de Jeshua.
 
+Plan unificado de implementación y trazabilidad de ambas auditorías: [roadmapImplementacionCodex.md](roadmapImplementacionCodex.md).
+
+Seguimiento del 2026-09-06: [avance local de shell, navegación y fechas](docs/11-shell-navegacion-codex.md). Los hallazgos siguientes son históricos; los enlaces a páginas apuntan ahora a su ubicación en `(private)`. Esto no declara cerradas las auditorías.
+
 Base auditada: rama `main`, commit [`cec893b`](https://github.com/Jeshualapizco1/agentes-meta/tree/cec893b77f0dd3c703e1876f98908c0b585de76f).
 
 ## 1. Conclusión ejecutiva
@@ -323,7 +327,7 @@ Cierre: IDs de otra cuenta, valores negativos/extremos, filtros malformados y te
 
 ### A06 — P1 · C · Gestión de usuarios con operaciones demasiado acopladas
 
-Evidencia: [usuarios/actions.ts](apps/web/app/usuarios/actions.ts), [usuarios/page.tsx](apps/web/app/usuarios/page.tsx) y [admin.ts](apps/web/lib/admin.ts). Alta, cambios de rol y contraseña requieren distinguir Auth de `app_users`; fallar a mitad puede dejar estados divergentes. El listado Auth está limitado y la contraseña se captura como texto visible. No hay protección explícita del último administrador.
+Evidencia: [usuarios/actions.ts](apps/web/app/usuarios/actions.ts), [usuarios/page.tsx](apps/web/app/%28private%29/usuarios/page.tsx) y [admin.ts](apps/web/lib/admin.ts). Alta, cambios de rol y contraseña requieren distinguir Auth de `app_users`; fallar a mitad puede dejar estados divergentes. El listado Auth está limitado y la contraseña se captura como texto visible. No hay protección explícita del último administrador.
 
 Mejora: separar alta, cambio de rol, baja y restablecimiento de contraseña; ocultar contraseña por defecto, exigir reautenticación para acciones delicadas, paginar usuarios y reconciliar fallos entre sistemas. Impedir perder al último admin y registrar quién cambió qué, sin guardar contraseñas en logs.
 
@@ -749,7 +753,7 @@ Cierre: `days=Infinity`, valores negativos/fraccionarios, `2026-99-99`, rango de
 
 ### U03 — P1 · C · Todavía hay consultas truncables pese a la auditoría de paginación anterior
 
-Evidencia: [Hoy](apps/web/app/hoy/page.tsx) y [Cuenta](apps/web/app/cuenta/page.tsx) consultan insights por campaña sin paginar; [Análisis](apps/web/app/analisis/page.tsx) consulta ventanas con `.in(ids)` sin paginar; [Bitácora](apps/web/app/bitacora/page.tsx) tiene límite 800 y listado de actores sin paginación. Por ejemplo, 100 campañas × 21 fechas supera 1,000 filas. No afirmo que hoy todas esas vistas estén truncadas: depende de volumen y configuración real.
+Evidencia: [Hoy](apps/web/app/%28private%29/hoy/page.tsx) y [Cuenta](apps/web/app/%28private%29/cuenta/page.tsx) consultan insights por campaña sin paginar; [Análisis](apps/web/app/%28private%29/analisis/page.tsx) consulta ventanas con `.in(ids)` sin paginar; [Bitácora](apps/web/app/%28private%29/bitacora/page.tsx) tiene límite 800 y listado de actores sin paginación. Por ejemplo, 100 campañas × 21 fechas supera 1,000 filas. No afirmo que hoy todas esas vistas estén truncadas: depende de volumen y configuración real.
 
 Mejora: paginar o agregar en SQL, obtener conteos exactos y avisar de límites. Paginar también listas de IDs enviadas en filtros grandes. No mostrar el resto de días como “sin cambios” si simplemente quedaron fuera del límite.
 
@@ -829,7 +833,7 @@ Cierre: aprobar/rechazar, filtrar, leer una cifra y registrar una nota son reali
 
 ### U13 — P2 · C/M · “Revisado” es demasiado pobre para cerrar el trabajo sobre un anuncio
 
-Evidencia: [Anuncios](apps/web/app/anuncios/page.tsx) registra que alguien lo vio en siete días, con nota opcional. Eso no distingue revisión creativa, problema detectado, tarea pendiente o conclusión. El rendimiento agregado puede excluir entidades no disponibles en el inventario actual y filtros de activos pueden sesgar una revisión histórica.
+Evidencia: [Anuncios](apps/web/app/%28private%29/anuncios/page.tsx) registra que alguien lo vio en siete días, con nota opcional. Eso no distingue revisión creativa, problema detectado, tarea pendiente o conclusión. El rendimiento agregado puede excluir entidades no disponibles en el inventario actual y filtros de activos pueden sesgar una revisión histórica.
 
 Mejora: detalle de creativo/versiones, enlaces a Meta, historial de revisiones, categorías de problema/aprendizaje y fecha de próxima revisión. Mostrar mínimo de muestra para rankings y aclarar si se revisan solo activos actuales o el conjunto histórico.
 
@@ -837,7 +841,7 @@ Cierre: “todo revisado” no implica “sin problemas”; un anuncio pausado q
 
 ### U14 — P1 · C · El mapa horario no recorta correctamente el rango convertido
 
-Evidencia: [Horarios](apps/web/app/horarios/page.tsx) consulta `range.from/to` como fechas de la cuenta y después desplaza a CDMX. Para Mazatlán → CDMX se necesita incluir parte del día anterior de origen y recortar después de convertir; actualmente puede faltar la primera hora y entrar una hora fuera del final solicitado.
+Evidencia: [Horarios](apps/web/app/%28private%29/horarios/page.tsx) consulta `range.from/to` como fechas de la cuenta y después desplaza a CDMX. Para Mazatlán → CDMX se necesita incluir parte del día anterior de origen y recortar después de convertir; actualmente puede faltar la primera hora y entrar una hora fuera del final solicitado.
 
 Mejora: transformar primero los límites del rango objetivo a origen, consultar con el margen necesario y filtrar cada celda convertida contra el rango solicitado. Mostrar días efectivos por celda, no solo compras acumuladas. Con pocos bloques, evitar que el mismo aparezca simultáneamente entre mejores y peores.
 
@@ -1196,3 +1200,7 @@ No hacen falta para entregar esta auditoría, pero sí para certificar operació
 No empezaría por añadir más “inteligencia”. Empezaría por hacer que **cada cifra tenga cobertura, cada permiso se compruebe en el servidor, cada orden tenga un único dueño y cada fallo deje un estado verdadero y recuperable**.
 
 Después construiría una regla pequeña de punta a punta y comprobaría si realmente ayuda al comprador. Ese camino aprovecha lo que ya hiciste, reduce el riesgo de dinero real y acerca el proyecto a la promesa operativa que te interesó de Testmia mucho más que añadir nuevas pantallas o cambiar de modelo.
+
+## 19. Auditoría complementaria del frontend
+
+La revisión específica de las 12 pantallas, componentes compartidos, interacción y visualización está en [auditoriaFrontendCodex.md](auditoriaFrontendCodex.md). Incluye 75 hallazgos, una dirección visual carbón/naranja/violeta basada en la referencia proporcionada y un roadmap de nueve fases con criterios de aceptación. Es un plan de rediseño, no una implementación; sus dependencias de seguridad y calidad de datos se conectan con esta auditoría general.

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Chip } from "./Chip";
 import { fmtTime, actorColor, initials, KIND_LABEL } from "@/lib/format";
+import { sessionHref } from "@/lib/navigation";
 export type Session = { id: string; account_id: string; actor_name: string; actor_kind: string; started_at: string; ended_at: string; kind: string; significance: string; resets_learning: boolean; summary: string; campaign_ids: string[]; group_count: number; event_count: number; annotation_count?: number };
-export function SessionRow({ s, accountName }: { s: Session; accountName?: string }) {
+export function SessionRow({ s, accountName, returnTo = "/bitacora" }: { s: Session; accountName?: string; returnTo?: string }) {
   const isMeta = s.actor_kind === "meta";
   const color = isMeta ? "#a5b4fc" : actorColor(s.actor_name);
   return (
@@ -20,7 +21,7 @@ export function SessionRow({ s, accountName }: { s: Session; accountName?: strin
         <p className="mt-1 text-[15px] leading-snug">{s.summary}</p>
         <div className="mt-1 flex gap-3 font-mono text-[11px] text-muted">
           <span>{s.group_count} objeto(s) · {s.event_count} evento(s)</span>
-          <Link href={`/sesion/${s.id}`} className="text-meta hover:underline">ver detalle →</Link>
+          <Link href={sessionHref(s.id, s.account_id, returnTo)} className="text-meta hover:underline">ver detalle →</Link>
         </div>
       </div>
     </li>

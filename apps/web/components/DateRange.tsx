@@ -1,32 +1,31 @@
 "use client";
-import { useRef, useState } from "react";
+import { useId, useState } from "react";
+import { dayKey } from "@/lib/format";
+import { MAX_RANGE_DAYS, validDayCount } from "@/lib/range";
 
-/**
- * Selector de periodo para formularios GET: atajos (últimos N días) o "Personalizado" con calendario de fecha inicio y fin
- * (inputs nativos de fecha, sin librerías). Envía `days` o `from`/`to`; el servidor resuelve el rango con resolveRange().
- */
-export function DateRange({ days, from, to, presets = [7, 14, 30, 90], label = "Periodo" }: { days: number; from?: string; to?: string; presets?: number[]; label?: string }) {
-  const [custom, setCustom] = useState(!!from);
-  const [a, setA] = useState(from ?? "");
-  const [b, setB] = useState(to ?? "");
-  const endRef = useRef<HTMLInputElement>(null);
-  // al elegir la fecha inicio se abre de inmediato el calendario de la fecha fin
-  const pickStart = (v: string) => { setA(v); if (v && !b) setB(""); requestAnimationFrame(() => { const el = endRef.current; if (!el) return; el.focus(); try { (el as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* el navegador exige gesto del usuario; queda enfocado */ } }); };
-  const today = new Date().toISOString().slice(0, 10);
-  return (
-    <div className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col gap-1 text-xs text-muted">{label}
-        <select name={custom ? undefined : "days"} value={custom ? "custom" : String(days)} onChange={e => setCustom(e.target.value === "custom")} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink">
-          {presets.map(d => <option key={d} value={d}>Últimos {d} días</option>)}
-          <option value="custom">Personalizado…</option>
-        </select>
-      </label>
-      {custom && (
-        <>
-          <label className="flex flex-col gap-1 text-xs text-muted">Desde<input type="date" name="from" required value={a} max={b || today} onChange={e => pickStart(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
-          <label className="flex flex-col gap-1 text-xs text-muted">Hasta<input ref={endRef} type="date" name="to" required value={b} min={a || undefined} max={today} onChange={e => setB(e.target.value)} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink" /></label>
-        </>
-      )}
+type Props = { days: number; from?: string; to?: string; presets?: number[]; label?: string; today?: string };
+/** La clave reinicia el borrador cuando cambia el rango de la URL, también con Atrás/Adelante. */
+export function DateRange(props: Props) {
+  return <RangeFields key={`${props.days}:${props.from ?? ""}:${props.to ?? ""}`} {...props} />;
+}
+function RangeFields({ days, from, to, presets = [7, 14, 30, 90], label = "Periodo", today = dayKey(new Date()) }: Props) {
+  const id = useId();
+  const [selection, setSelection] = useState(from ? "custom" : String(days));
+  const [start, setStart] = useState(from ?? "");
+  const [end, setEnd] = useState(to ?? "");
+  const custom = selection === "custom";
+  const choices = [...new Set([...presets, days])].filter(d => validDayCount(String(d))).sort((a, b) => a - b);
+  return <div className="date-range flex flex-wrap items-end gap-2">
+    <div className="flex min-w-0 flex-col gap-1 text-xs text-muted"><label htmlFor={id}>{label || "Periodo"}</label>
+      <select id={id} name={custom ? undefined : "days"} value={selection} onChange={e => setSelection(e.target.value)} className="border px-3 text-base text-ink">
+        {choices.map(d => <option key={d} value={d}>Últimos {d} días</option>)}
+        <option value="custom">Personalizado…</option>
+      </select>
     </div>
-  );
+    {custom && <>
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Desde<input type="date" name="from" required value={start} max={end && end < today ? end : today} onChange={e => setStart(e.target.value)} className="border px-3 text-base text-ink" /></label>
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Hasta<input type="date" name="to" required value={end} min={start || undefined} max={today} onChange={e => setEnd(e.target.value)} className="border px-3 text-base text-ink" /></label>
+    </>}
+    <span className="basis-full text-xs text-muted">Fechas en CDMX · hasta {MAX_RANGE_DAYS} días</span>
+  </div>;
 }

@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { currentUser } from "@/lib/supabase/server";
+import { requireMember } from "@/lib/auth";
 import { validateExperiment, explorationBudget, type ExperimentMetric } from "@agentes-meta/core";
 
 const num = (v: FormDataEntryValue | null) => { const s = String(v ?? "").trim().replace(/[$,%\s]/g, ""); if (!s) return null; const n = Number(s); return Number.isFinite(n) ? n : null; };
@@ -19,7 +19,7 @@ async function budgetCheck(sb: ReturnType<typeof db>, account: string, newBudget
 
 /** Guarda un experimento como borrador o lo activa (intent=activar). Activar exige hipótesis, criterio y presupuesto, y cabida en el presupuesto de exploración. */
 export async function saveExperiment(form: FormData) {
-  const user = await currentUser(); if (!user?.email) redirect("/login?next=/experimentos");
+  const user = await requireMember("/experimentos");
   const account = String(form.get("account_id") ?? ""), sb = db();
   const entity_ids = form.getAll("entity").map(String);
   const { data: ents } = entity_ids.length ? await sb.from("entities").select("id,campaign_id").in("id", entity_ids) : { data: [] };
@@ -38,7 +38,7 @@ export async function saveExperiment(form: FormData) {
 }
 
 export async function activateExperiment(form: FormData) {
-  const user = await currentUser(); if (!user?.email) redirect("/login?next=/experimentos");
+  const user = await requireMember("/experimentos");
   const id = String(form.get("id")), sb = db();
   const { data: x } = await sb.from("experiments").select("*").eq("id", id).single(); if (!x) redirect("/experimentos");
   const errs = validateExperiment({ hypothesis: x.hypothesis, metric: x.metric, threshold: x.threshold != null ? Number(x.threshold) : null, min_purchases: x.min_purchases, window_days: x.window_days, budget: x.budget != null ? Number(x.budget) : null, campaign_ids: x.campaign_ids ?? [], start_date: x.start_date });
@@ -49,7 +49,7 @@ export async function activateExperiment(form: FormData) {
 }
 
 export async function cancelExperiment(form: FormData) {
-  const user = await currentUser(); if (!user?.email) redirect("/login?next=/experimentos");
+  const user = await requireMember("/experimentos");
   const id = String(form.get("id")), sb = db();
   const { data: x } = await sb.from("experiments").update({ status: "cancelado", verdict_reason: String(form.get("reason") ?? "").trim() || "cancelado a mano", decided_by: user.email, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id).select("account_id").single();
   revalidatePath("/experimentos"); back(x?.account_id ?? "", { saved: "cancelado" });
@@ -57,7 +57,7 @@ export async function cancelExperiment(form: FormData) {
 
 /** Veredicto final: lo confirma una persona a partir del propuesto por el analista. La razón es obligatoria. */
 export async function decideExperiment(form: FormData) {
-  const user = await currentUser(); if (!user?.email) redirect("/login?next=/experimentos");
+  const user = await requireMember("/experimentos");
   const id = String(form.get("id")), decision = String(form.get("decision")), reason = String(form.get("reason") ?? "").trim(), sb = db();
   const { data: x } = await sb.from("experiments").select("account_id,evaluation").eq("id", id).single(); if (!x) redirect("/experimentos");
   if (!["graduado", "descartado"].includes(decision)) back(x.account_id, { error: "Decisión inválida." });

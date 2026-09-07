@@ -14,3 +14,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
       - run: pnpm -r test
+      - name: Integración SQL en PostgreSQL efímero
+        run: pnpm --filter @agentes-meta/db test:integration
+      - name: Build de producción de la web
+        run: pnpm --filter @agentes-meta/web build
+      - name: Compilar laboratorio visual aislado
+        run: pnpm --filter @agentes-meta/web visual:build
+      - name: Instalar Chromium de pruebas
+        run: pnpm --filter @agentes-meta/web exec playwright install --with-deps --only-shell chromium
+      - name: Verificar componentes en navegador sin APIs externas
+        run: pnpm --filter @agentes-meta/web test:visual

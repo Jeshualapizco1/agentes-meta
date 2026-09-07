@@ -1,18 +1,12 @@
 "use server";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { upsertAuthUser, deleteAuthUser } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-async function requireAdmin() {
-  const user = await requireUser("/usuarios");
-  const { data } = await db().from("app_users").select("role").eq("email", user.email!.toLowerCase()).maybeSingle();
-  if (data?.role !== "admin") redirect("/bitacora");
-  return user;
-}
 export async function createUser(form: FormData) {
-  await requireAdmin();
+  await requireAdmin("/usuarios");
   const email = String(form.get("email") ?? "").trim().toLowerCase(), password = String(form.get("password") ?? ""), name = String(form.get("name") ?? "").trim(), role = String(form.get("role") ?? "buyer") === "admin" ? "admin" : "buyer";
   if (!email || password.length < 8) redirect(`/usuarios?error=${encodeURIComponent("Correo válido y contraseña de al menos 8 caracteres.")}`);
   try {
@@ -23,7 +17,7 @@ export async function createUser(form: FormData) {
   revalidatePath("/usuarios"); redirect(`/usuarios?ok=${encodeURIComponent(email)}`);
 }
 export async function removeUser(form: FormData) {
-  const me = await requireAdmin();
+  const me = await requireAdmin("/usuarios");
   const email = String(form.get("email") ?? "").toLowerCase();
   if (email === me.email!.toLowerCase()) redirect(`/usuarios?error=${encodeURIComponent("No puedes eliminarte a ti mismo.")}`);
   await deleteAuthUser(email);

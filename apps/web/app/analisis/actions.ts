@@ -2,13 +2,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { currentUser } from "@/lib/supabase/server";
+import { requireMember } from "@/lib/auth";
 import { saveWeekly } from "@agentes-meta/agents";
 
 /** Forzar análisis: recalcula ventanas y guarda el reporte del periodo que termina ayer. La narrativa la añade la siguiente corrida del analista (Claude corre en GitHub Actions, no aquí). */
 export async function forceWeekly(form: FormData) {
-  const user = await currentUser();
-  if (!user?.email) redirect("/login?next=/analisis");
+  const user = await requireMember("/analisis");
   const accountId = String(form.get("account") ?? "");
   const sb = db();
   const { data: acc } = await sb.from("accounts").select("id,name,timezone_name").eq("id", accountId).single();

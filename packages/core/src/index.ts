@@ -9,6 +9,7 @@ export * from "./ceiling.js";
 export * from "./experiments.js";
 export * from "./entities.js";
 export * from "./strategist.js";
+export * from "./decision-engine.js";
 export * from "./notifications.js";
 export * from "./execution.js";
 export * from "./week-report.js";

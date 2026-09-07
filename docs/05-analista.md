@@ -290,4 +290,4 @@ ese criterio (código en `packages/core/src/experiments.ts`, pruebas en `experim
 | Narrativa con Claude | `packages/agents/src/narrative.ts` |
 | Tablas | `evaluation_windows` (una fila por sesión y horizonte; migraciones 0009, 0010 salvedades, 0011 `baseline`, `agreement`, `reading`), `analyses` (una por cuenta y periodo) |
 | Experimentos | `packages/core/src/experiments.ts`, `packages/agents/src/analyst.ts` (`evaluateExperiments`), tabla `experiments` (migración 0014), `apps/web/app/experimentos/` |
-| Pantalla | `apps/web/app/analisis/page.tsx` |
+| Pantalla | `apps/web/app/(private)/analisis/page.tsx` |

@@ -1,4 +1,5 @@
 node_modules/
+.pnpm-store/
 .env
 .env.*
 !.env.example
@@ -9,3 +10,6 @@ dist/
 .turbo/
 data/
 .netlify/
+apps/web/visual-dist/
+apps/web/visual-results/
+apps/web/playwright-report/

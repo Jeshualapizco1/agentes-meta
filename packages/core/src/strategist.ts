@@ -7,6 +7,7 @@
  *  - Una propuesta pendiente expira si no se decide antes de la siguiente pasada que la volvería a proponer.
  *  - Cada pasada deja registro aunque no proponga nada ("revisó N entidades y no propuso cambios").
  */
+import { evaluateDecisionRules, type DecisionSource } from "./decision-engine.js";
 export type RuleAction = "pausar_anuncio" | "subir_presupuesto" | "bajar_presupuesto" | "mover_presupuesto" | "bloquear_subidas";
 export const RULE_ACTION_LABEL: Record<RuleAction, string> = { pausar_anuncio: "Pausar anuncio", subir_presupuesto: "Subir presupuesto", bajar_presupuesto: "Bajar presupuesto", mover_presupuesto: "Mover presupuesto entre campañas", bloquear_subidas: "Bloquear subidas (candado)" };
 export interface Rule { id: string; name: string; action: RuleAction; condition: Record<string, unknown>; params: Record<string, unknown>; status: "activa" | "inactiva"; mode: "semi" | "auto"; valid_from?: string | null; valid_to?: string | null }
@@ -75,12 +76,11 @@ export function activeRules(rules: Rule[], today: string): Rule[] {
 }
 
 /**
- * Candidatos a partir de las reglas con acción. Punto de extensión: cada acción se implementa cuando llegue la regla
- * transcrita de Eduardo (docs/06). Hoy solo existen reglas de tipo `bloquear_subidas`, que actúan como candado, no como
- * propuesta, así que la pasada revisa y no propone.
+ * Candidatos con criterios estructurados explícitos y una ventana cerrada verificable.
+ * Sin fuente o sin reglas compatibles no se inventan propuestas; bloquear_subidas sigue siendo un candado.
  */
-export function generateCandidates(rules: Rule[]): Candidate[] {
-  return rules.filter(r => r.action !== "bloquear_subidas").flatMap(() => []);
+export function generateCandidates(rules: Rule[], source?: DecisionSource): Candidate[] {
+  return source ? evaluateDecisionRules(rules, source).candidates : [];
 }
 
 /** Una pasada: candados en fila por candidato; los que pasan quedan pendientes, los bloqueados se descartan con su razón. */

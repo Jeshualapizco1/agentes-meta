@@ -37,15 +37,15 @@ export function Sparkline({ points, markers = [], height = 64, id, fmt = "fixed2
         onMouseLeave={() => setHover(null)}
         onMouseMove={e => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * W; let best = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i]! - x) < Math.abs(xs[best]! - x)) best = i; setHover(best); }}>
         <defs>
-          <linearGradient id={`${id}-area`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#60a5fa" stopOpacity="0.45" /><stop offset="100%" stopColor="#7c3aed" stopOpacity="0" /></linearGradient>
-          <linearGradient id={`${id}-line`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#a78bfa" /></linearGradient>
+          <linearGradient id={`${id}-area`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-data-roas)" stopOpacity="0.45" /><stop offset="100%" stopColor="var(--color-data-roas)" stopOpacity="0" /></linearGradient>
+          <linearGradient id={`${id}-line`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="var(--color-data-roas)" /><stop offset="100%" stopColor="var(--color-data-roas)" /></linearGradient>
         </defs>
         {firstOpen > 0 && <rect x={xs[firstOpen - 1]} y={0} width={W - pad - xs[firstOpen - 1]!} height={H} fill="var(--color-amber-soft)" />}
         <path d={area.trim()} fill={`url(#${id}-area)`} />
         <path d={line.trim()} fill="none" stroke={`url(#${id}-line)`} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="glow-line" vectorEffect="non-scaling-stroke" />
         {markers.map((m, k) => { const i = idx.get(m.date); if (i == null) return null; const p = points[i]!; const cy = p.value != null ? y(p.value) : H - pad; return <circle key={k} cx={xs[i]} cy={cy} r="3.5" fill={m.resets ? "var(--color-amber)" : "var(--color-ink)"} stroke="var(--color-surface-solid)" strokeWidth="1.5" />; })}
-        {last && <circle cx={xs[idx.get(last.date)!]} cy={y(last.value!)} r="3" fill="#a78bfa" />}
-        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={0} y2={H} stroke="var(--color-muted)" strokeWidth="1" vectorEffect="non-scaling-stroke" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="#a78bfa" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
+        {last && <circle cx={xs[idx.get(last.date)!]} cy={y(last.value!)} r="3" fill="var(--color-data-roas)" />}
+        {h && <g><line x1={xs[hover!]} x2={xs[hover!]} y1={0} y2={H} stroke="var(--color-muted)" strokeWidth="1" vectorEffect="non-scaling-stroke" />{h.value != null && <circle cx={xs[hover!]} cy={y(h.value)} r="4" fill="var(--color-data-roas)" stroke="var(--color-surface-solid)" strokeWidth="2" />}</g>}
       </svg>
       {h && <Tip x={(xs[hover!]! / W) * 100} y={20 + ((h.value != null ? y(h.value) : H - pad) / H) * 80} date={h.date} value={`${h.value != null ? format(h.value) : "sin dato"}${unit && h.value != null ? ` ${unit}` : ""}`} extra={[...(h.closed ? [] : ["día en curso"]), ...(changesByDay.get(h.date) ? [`${changesByDay.get(h.date)} cambio(s)`] : [])]} />}
     </div>

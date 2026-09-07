@@ -2,6 +2,41 @@
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
+## Retoma de la mesa de decisiones — 2026-09-06
+
+- [x] Recuperada la sesión interrumpida: generador de criterios estructurados, `/decisiones`, revisiones de oportunidades y aprobación/corrección/rechazo en simulación desde Hoy. Evidencia y límites en [docs/14-decisiones-operativas-codex.md](docs/14-decisiones-operativas-codex.md).
+- [x] Migraciones 0020/0021 instaladas en Supabase tras 82 pruebas SQL; copia local previa de perfiles/historial e igualdad de valores comprobada. Solo backend autorizado para las nuevas funciones.
+- [x] Lectura real con el adaptador de la pantalla: cuatro campañas de Aromante 1 requieren revisión; todas con siete días cerrados. Sin criterios financieros inventados, reglas activadas ni órdenes a Meta.
+- [x] Regresión del inventario de migraciones corregida y 23 pruebas nuevas de acciones. 364 web, 108 core, 8 DB unitarias, 82 SQL y 49 visuales aprobadas; una omitida histórica en core. Tipos/build aprobados.
+- [ ] Entrar a `http://127.0.0.1:3000/decisiones` para revisar la interfaz autenticada y registrar la primera decisión del operador.
+- [ ] Definir y evaluar los criterios de una primera regla; actualmente hay cero reglas estructuradas activas. Guardar exige administrador; las propuestas resultantes se revisan en Hoy en simulación.
+- [ ] Continuar cobertura/frescura, aislamiento por cuenta, seguimiento de resultados y garantías del ejecutor según el roadmap. No habilitar dinero real como consecuencia de cerrar la interfaz.
+
+El estado de solo lectura y migraciones pendientes en los avances anteriores queda superado por este corte; se conserva debajo como historial.
+
+## Prioridad de implementación tras las auditorías — 2026-09-06
+
+El orden está en [roadmapImplementacionCodex.md](roadmapImplementacionCodex.md): 40 bloques con trazabilidad de los 109 hallazgos generales y 75 de frontend. **Implementación en curso**, con avance parcial de IM-01/02/03/04/06/13/16/21/22/23/31. No se desplegó ni se habilitaron acciones reales. Evidencia y límites: [primer corte](docs/08-base-implementacion-codex.md), [configuración transaccional / SQL](docs/09-configuracion-transaccional-codex.md), [sistema visual](docs/10-sistema-visual-codex.md), [shell/navegación/fechas](docs/11-shell-navegacion-codex.md), [piloto de Hoy](docs/12-hoy-piloto-codex.md) y [Hoy con datos reales](docs/13-hoy-datos-reales-codex.md).
+
+- [x] Primer corte: membresía central en páginas y 13 acciones, rol admin para configuración/usuarios/liberación de freno, modos de configuración permitidos y mensajes de riesgo corregidos.
+- [x] Segundo corte: perfil/historial atómicos, versiones/diff, validación SQL, campañas inactivas seleccionadas y formulario que conserva borradores al fallar.
+- [x] Runner con plan, historial, checksum, lock y transacciones; prueba de instalación y actualización 0019→0020 en PostgreSQL temporal. No se migró producción.
+- [x] Base visual IM-22: carbón/naranja/violeta, tipografía local, componentes reutilizables y primeros consumidores en Login/Configuración; laboratorio sintético y capturas nuevas.
+- [x] Shell IM-23: login separado, permisos visibles, navegación agrupada/móvil, retorno y periodos validados; URLs existentes conservadas. No equivale al cierre completo del bloque.
+- [x] Piloto IM-21: Hoy bento con cuatro KPI, prioridades, gráfica, evidencia en panel y 13 escenarios; se validó primero en laboratorio con controles solo en memoria.
+- [x] Lectura real de Hoy: dashboard nuevo conectado a nueve fuentes de Supabase, paginación de métricas, cuenta predeterminada desde DB y errores por sección. La integración real permanece en solo lectura.
+- [x] Verificación acumulada: web 332, core 76, DB unitarias 8, SQL 49, navegador 49; **514 aprobadas y 1 omitida preexistente**. Tipos, build web y laboratorio aprobados. Workflow ampliado, todavía sin ejecución remota de esta versión.
+- [ ] Completar IM-01/02: contratos restantes, regresiones R01–R20 y E2E real; no dar por cerrados los bloques completos.
+- [ ] Completar IM-03/04: alcance por cuenta, validación de otras acciones y confirmación reforzada de modo real. Decidir asignaciones antes de cerrar aislamiento.
+- [ ] Completar IM-06/07: diagnóstico/adopción del historial existente, despliegue de ensayo, tipos/invariantes restantes y dependencias. La web nueva exige 0020 antes del despliegue.
+- [ ] Completar adopción de componentes IM-22 y aprobación de la composición visual; no están rediseñadas las doce pantallas.
+- [ ] Completar IM-23: cuentas por defecto canonicalizadas, filtros dependientes y E2E Next/Auth con login desde detalle, expiración/revocación y adaptador de despliegue.
+- [ ] Revisar/aprobar composición de Hoy IM-21 en escritorio/móvil: `http://127.0.0.1:4173/hoy?account=100` mientras el laboratorio esté activo. Implementación con fixtures no equivale a aprobación del usuario ni integración real.
+- [ ] Siguiente técnico: completar asignación por cuenta y contrato de cobertura/frescura/reconciliación (IM-03/13/16/31). Después integrar aprobación con autorización, revalidación, concurrencia e intención durable; no conectar el formulario nuevo directamente a la acción heredada ni habilitar escritura en Meta.
+- [ ] Continuar por dependencias del roadmap maestro; las puertas G0–G4 separan implementación, validación y habilitación.
+
+Los pendientes anteriores se conservan debajo como contexto. Esperar el criterio del operador bloquea reglas de negocio, no las correcciones de seguridad, integridad o UX. Recuperación y congelamientos deben quedar probados **antes** de dinero real; no seguir la dependencia histórica inversa. Revisar las notas de acceso, despliegue y credenciales contra el estado vigente antes de actuar.
+
 ## Del lado de Jeshua (en orden)
 1. [ ] **Telegram:** crear el bot con @BotFather, crear el grupo del equipo, meter al bot, obtener el chat id (docs/02 §Telegram). Guardar `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env` y como secretos de GitHub. Hay avisos en espera que saldrán solos.
 2. [ ] **Llave de Claude:** `ANTHROPIC_API_KEY` en `.env` y en secretos (`gh secret set ANTHROPIC_API_KEY --body "$(grep '^ANTHROPIC_API_KEY=' .env | cut -d= -f2 | xargs)"`). Sin ella el reporte semanal sale sin redacción.

@@ -10,10 +10,10 @@ export function Card({ hero, span, rows, as = "section", className = "", eyebrow
   const cls = ["card", hero ? "card-hero" : "", span ? SPAN[span] : "", rows === 2 ? "lg:row-span-2" : "", "p-5", className].filter(Boolean).join(" ");
   return createElement(as, { className: cls },
     (eyebrow || title || action) ? (
-      <header className="mb-3 flex items-start gap-3">
+      <header className="mb-4 flex flex-wrap items-start gap-3">
         <div className="min-w-0">
-          {eyebrow && <p className="font-mono text-[11px] uppercase tracking-wider text-muted">{eyebrow}</p>}
-          {title && <h2 className="font-semibold leading-tight">{title}</h2>}
+          {eyebrow && <p className="mb-1 text-xs font-medium text-muted">{eyebrow}</p>}
+          {title && <h2 className="text-base font-semibold leading-snug">{title}</h2>}
         </div>
         {action && <div className="ml-auto shrink-0">{action}</div>}
       </header>

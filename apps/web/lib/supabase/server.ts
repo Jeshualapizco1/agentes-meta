@@ -9,6 +9,6 @@ export async function authClient() {
 }
 export async function currentUser() {
   const sb = await authClient();
-  const { data } = await sb.auth.getUser();
-  return data.user ?? null;
+  const { data, error } = await sb.auth.getUser();
+  return error ? null : data.user ?? null;
 }
