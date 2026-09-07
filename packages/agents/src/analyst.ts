@@ -8,6 +8,7 @@
 import { evaluateChange, evaluateExperiment, buildWeeklyEvidence, toZoned, CDMX, HORIZON_DAYS, BASELINE_DAYS, type DailyRow, type Horizon, type Evaluation, type WeeklySession, type WeeklyEvidence, type ExperimentMetric } from "@agentes-meta/core";
 import { upsertChunks, fetchAll, type Db } from "@agentes-meta/db";
 import { writeWeeklyNarrative } from "./narrative.js";
+import { closeOpenAlerts, recordAlert, resolvedAlertKinds } from "./alerts.js";
 
 const HORIZONS: Horizon[] = ["72h", "7d", "14d"];
 export interface AnalystOptions { db: Db; accountIds?: string[]; days?: number; weekly?: "auto" | "force" | "off"; anthropicKey?: string; triggeredBy?: string; log?: (m: string) => void }
@@ -64,7 +65,7 @@ export async function evaluateExperiments(db: Db, acc: Acc, today: string, log: 
     const { error: ue } = await db.from("experiments").update({ evaluation: ev, proposed_verdict: ev.proposed, status, updated_at: new Date().toISOString() }).eq("id", x.id);
     if (ue) throw new Error(ue.message);
     if (status !== x.status) {
-      await db.from("alerts").insert({ account_id: acc.id, kind: "experiment_ready", severity: "info", message: `El experimento «${x.name}» cerró su ventana de ${x.window_days} días. Veredicto propuesto: ${ev.proposed}. Confirmar en /experimentos.`, payload: { experiment_id: x.id, proposed: ev.proposed } });
+      await recordAlert(db, { account_id: acc.id, kind: "experiment_ready", severity: "info", message: `El experimento «${x.name}» cerró su ventana de ${x.window_days} días. Veredicto propuesto: ${ev.proposed}. Confirmar en /experimentos.`, payload: { experiment_id: x.id, proposed: ev.proposed } }, log);
       log(`  ⚗ ${x.name}: ${ev.proposed}`);
     }
   }
@@ -128,11 +129,12 @@ export async function runAnalyst(o: AnalystOptions): Promise<void> {
         for (const p of pending ?? []) { const r = await saveWeekly(o.db, acc, p.period_end, { anthropicKey: o.anthropicKey, triggeredBy: "backfill", log }); stats[`narrated_${p.period_end}`] = r.narrated ? 1 : 0; }
       } else if (o.weekly !== "off") stats.narrative = "sin ANTHROPIC_API_KEY";
       await o.db.from("agent_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats: { ...stats, ms: Date.now() - t0 } }).eq("id", run!.id);
+      await closeOpenAlerts(o.db, acc.id, resolvedAlertKinds({ agent: "analyst", status: "ok" }), log);
       log(`✔ analista ${acc.name}: ${JSON.stringify(stats)}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await o.db.from("agent_runs").update({ status: "failed", finished_at: new Date().toISOString(), error: msg }).eq("id", run!.id);
-      await o.db.from("alerts").insert({ account_id: acc.id, kind: "analyst_failed", severity: "warning", message: `Falló el analista: ${msg}` });
+      await recordAlert(o.db, { account_id: acc.id, kind: "analyst_failed", severity: "warning", message: `Falló el analista: ${msg}` }, log);
       log(`✖ analista ${acc.name}: ${msg}`);
     }
   }

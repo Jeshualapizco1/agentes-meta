@@ -12,7 +12,10 @@ Abre **Estado del sistema** (menú de la izquierda, abajo). Tres cosas, en este 
    sistema corre a las 00:17, 06:17, 12:17 y 18:17, hora de la Ciudad de México). Si la última corrida es de ayer o
    antes, algo se detuvo: avisa a Jeshua.
 2. **Alertas sin atender.** Cada alerta trae qué pasó y, cuando aplica, un "Qué hacer". Las rojas son urgentes
-   (también llegan por Telegram); las ámbar pueden esperar al día. Cuando algo ya se atendió, se marca como atendido.
+   (también llegan por Telegram); las ámbar pueden esperar al día. Las alertas se cierran solas cuando la condición
+   desaparece (la sincronización volvió a funcionar, el gasto regresó bajo el techo, el acceso a Meta se renovó, la
+   cuenta volvió a estar activa); quedan registradas como "sistema:recuperado". Las que exigen a una persona
+   (anotación sin sesión, freno de emergencia) no se cierran solas.
 3. **Corridas recientes.** Las filas deben decir "ok". Una "failed" aislada no es grave si la siguiente ya dice "ok";
    dos seguidas del mismo agente sí lo son.
 

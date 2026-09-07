@@ -9,17 +9,18 @@
  */
 import { runPass, evaluateDecisionRules, activeRules, expirePending, brakeTriggers, uuidV5, toZoned, type Rule, type LockContext, type CeilingCheck, type PassProposal, type DecisionEntity, type DecisionInsight } from "@agentes-meta/core";
 import { fetchAll, type Db } from "@agentes-meta/db";
+import { closeOpenAlerts, recordAlert, resolvedAlertKinds } from "./alerts.js";
 
 type Acc = { id: string; name: string; timezone_name: string };
 const addDays = (date: string, n: number) => { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 /** Activa el freno si no lo está: fila en emergency_brakes + alerta crítica. Nunca lo libera (eso es a mano, por admin). */
-export async function engageBrake(db: Db, accountId: string, by: string, reason: string): Promise<boolean> {
+export async function engageBrake(db: Db, accountId: string, by: string, reason: string, log: (m: string) => void = console.log): Promise<boolean> {
   const { data: cur } = await db.from("emergency_brakes").select("active").eq("account_id", accountId).maybeSingle();
   if (cur?.active) return false;
   const { error } = await db.from("emergency_brakes").upsert({ account_id: accountId, active: true, engaged_by: by, engaged_at: new Date().toISOString(), engage_reason: reason, released_by: null, released_at: null, release_reason: null, updated_at: new Date().toISOString() }, { onConflict: "account_id" });
   if (error) throw new Error(error.message);
-  await db.from("alerts").insert({ account_id: accountId, kind: "emergency_brake", severity: "critical", message: `Freno de emergencia activado (${by}): ${reason}. Se libera solo a mano, por un administrador, con razón.`, payload: { by, reason, hint: "Revisar la causa, corregirla en Meta o en Configuración y liberar el freno desde Hoy (solo administradores)." } });
+  await recordAlert(db, { account_id: accountId, kind: "emergency_brake", severity: "critical", message: `Freno de emergencia activado (${by}): ${reason}. Se libera solo a mano, por un administrador, con razón.`, payload: { by, reason, hint: "Revisar la causa, corregirla en Meta o en Configuración y liberar el freno desde Hoy (solo administradores)." } }, log);
   return true;
 }
 
@@ -27,7 +28,7 @@ export async function engageBrake(db: Db, accountId: string, by: string, reason:
 export async function strategistWatch(db: Db, acc: Acc, o: { accountStatus: number | null; ceiling: CeilingCheck | null; candidates?: number; proposalWriteFailed?: boolean; log: (m: string) => void }): Promise<string[]> {
   const { data: prof } = await db.from("account_profiles").select("max_actions_per_day").eq("account_id", acc.id).maybeSingle();
   const reasons = brakeTriggers({ spendTodayPartial: o.ceiling?.spend_today_partial ?? null, ceiling: o.ceiling?.ceiling ?? null, candidates: o.candidates ?? 0, maxPerPass: Number(prof?.max_actions_per_day ?? 5), proposalWriteFailed: !!o.proposalWriteFailed, accountStatus: o.accountStatus });
-  if (reasons.length && (await engageBrake(db, acc.id, "sistema", reasons.join("; ")))) o.log(`  ⛔ freno de emergencia: ${reasons.join("; ")}`);
+  if (reasons.length && (await engageBrake(db, acc.id, "sistema", reasons.join("; "), o.log))) o.log(`  ⛔ freno de emergencia: ${reasons.join("; ")}`);
   return reasons;
 }
 
@@ -98,12 +99,13 @@ export async function strategistPass(db: Db, acc: Acc, o: { ceiling: CeilingChec
     const stats = { day: lastClosed, mode, rules: rules.length, reviewed: reviewed ?? 0, candidates: candidates.length, exclusions: evaluation.exclusions, accepted: result.accepted, blocked: result.blocked, expired: expired.length, brake: brakeReasons.length, ms: Date.now() - t0 };
     if (writeFailed) throw new Error("fallo al registrar propuestas");
     await db.from("agent_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats }).eq("id", run!.id);
+    await closeOpenAlerts(db, acc.id, resolvedAlertKinds({ agent: "strategist", status: "ok" }), o.log);
     o.log(`  ⚙ estratega: ${summary}`);
     return stats;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await db.from("agent_runs").update({ status: "failed", finished_at: new Date().toISOString(), error: msg }).eq("id", run!.id);
-    await db.from("alerts").insert({ account_id: acc.id, kind: "strategist_failed", severity: "warning", message: `Falló la pasada del estratega: ${msg}` });
+    await recordAlert(db, { account_id: acc.id, kind: "strategist_failed", severity: "warning", message: `Falló la pasada del estratega: ${msg}` }, o.log);
     return { error: msg };
   }
 }

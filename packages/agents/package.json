@@ -5,7 +5,8 @@
   "type": "module", "main": "./src/index.ts", "types": "./src/index.ts",
   "scripts": {
     "collector": "tsx src/cli.ts collector",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@agentes-meta/core": "workspace:*",

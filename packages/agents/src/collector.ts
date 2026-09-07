@@ -16,6 +16,7 @@ import { MetaClient, MetaApiError } from "@agentes-meta/meta";
 import { upsertChunks, insertReturning, fetchAll, type Db } from "@agentes-meta/db";
 import { ingestInsights } from "./insights.js";
 import { ingestHourly } from "./hourly.js";
+import { closeOpenAlerts, recordAlert, refreshOpenAlert, resolvedAlertKinds } from "./alerts.js";
 
 export interface CollectorOptions { db: Db; meta: MetaClient; accountIds?: string[]; backfillDays?: number; overlapHours?: number; insightsDays?: number; hourlyDays?: number; skipInsights?: boolean; triggeredBy?: string; log?: (m: string) => void }
 
@@ -31,6 +32,7 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
     try {
       const stats = await collectAccount(o, acc, log);
       await o.db.from("agent_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats: { ...stats, ms: Date.now() - t0 } }).eq("id", run!.id);
+      await closeOpenAlerts(o.db, acc.id, resolvedAlertKinds({ agent: "collector", status: "ok", insightsStatus: o.skipInsights ? "skipped" : stats.insights.error ? "failed" : "ok" }), log, { keepOrphanAnnotations: true });
       log(`✔ ${acc.name}: ${JSON.stringify(stats)}`);
     } catch (e) {
       // el fallo de una cuenta no detiene a las demás: se registra, se alerta y el bucle sigue
@@ -40,8 +42,8 @@ export async function runCollector(o: CollectorOptions): Promise<void> {
       if (e instanceof OrphanAnnotationError) {
         // una alerta por día mientras no se atienda (el collector reintenta cada 6 h y volvería a fallar igual)
         const { count } = await o.db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", "collector_failed").eq("account_id", acc.id).is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString()).filter("payload->>reason", "eq", "annotation_orphan");
-        if (!count) await o.db.from("alerts").insert({ account_id: acc.id, kind, severity: "critical", message: `Falló el collector: ${msg}`, payload: { reason: "annotation_orphan", account_id: acc.id, session_id: e.details[0]!.session_id, annotation_id: e.details[0]!.annotation_id, annotations: e.details, hint: ORPHAN_HINT } });
-      } else await o.db.from("alerts").insert({ account_id: acc.id, kind, severity: "critical", message: kind === "meta_auth" ? `Token de Meta inválido o vencido: ${msg}` : `Falló el collector: ${msg}` });
+        if (!count) await recordAlert(o.db, { account_id: acc.id, kind, severity: "critical", message: `Falló el collector: ${msg}`, payload: { reason: "annotation_orphan", account_id: acc.id, session_id: e.details[0]!.session_id, annotation_id: e.details[0]!.annotation_id, annotations: e.details, hint: ORPHAN_HINT } }, log);
+      } else await recordAlert(o.db, { account_id: acc.id, kind, severity: "critical", message: kind === "meta_auth" ? `Token de Meta inválido o vencido: ${msg}` : `Falló el collector: ${msg}` }, log);
       log(`✖ ${acc.name}: ${msg}`);
     }
   }
@@ -93,7 +95,9 @@ async function checkTokenExpiry(o: CollectorOptions, log: (m: string) => void): 
     log(`token de Meta: ${t.is_valid ? "válido" : "INVÁLIDO"} · vence ${exp ? toZoned(exp, CDMX).date : "nunca"}${daysLeft != null ? ` (${daysLeft.toFixed(1)} días)` : ""}`);
     if (exp && daysLeft != null && daysLeft < 10) {
       const { count } = await o.db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", "meta_token_expiring").is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
-      if (!count) await o.db.from("alerts").insert({ account_id: null, kind: "meta_token_expiring", severity: "warning", message: `El token de Meta vence el ${toZoned(exp, CDMX).date} (faltan ${Math.max(0, Math.floor(daysLeft))} días). Generar uno nuevo y actualizar el secreto META_TOKEN_AROMANTE en GitHub y .env (docs/02-accesos.md).`, payload: { expires_at: exp.toISOString(), scopes: t.scopes ?? null, type: t.type ?? null } });
+      if (!count) await recordAlert(o.db, { account_id: null, kind: "meta_token_expiring", severity: "warning", message: `El token de Meta vence el ${toZoned(exp, CDMX).date} (faltan ${Math.max(0, Math.floor(daysLeft))} días). Generar uno nuevo y actualizar el secreto META_TOKEN_AROMANTE en GitHub y .env (docs/02-accesos.md).`, payload: { expires_at: exp.toISOString(), scopes: t.scopes ?? null, type: t.type ?? null } }, log);
+    } else {
+      await closeOpenAlerts(o.db, null, resolvedAlertKinds({ token: { is_valid: t.is_valid, days_left: daysLeft } }), log);
     }
   } catch (e) { log(`⚠ no se pudo consultar debug_token: ${e instanceof Error ? e.message : String(e)}`); }
 }
@@ -104,7 +108,8 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
 
   // 0. Estado de la cuenta (detecta deshabilitada / cambio de zona horaria)
   const info = await meta.account(acc.id);
-  if (info.account_status !== 1) await db.from("alerts").insert({ account_id: acc.id, kind: "account_status", severity: "critical", message: `La cuenta ${acc.name} no está activa (status ${info.account_status})` });
+  if (info.account_status !== 1) await recordAlert(db, { account_id: acc.id, kind: "account_status", severity: "critical", message: `La cuenta ${acc.name} no está activa (status ${info.account_status})` }, log);
+  else await closeOpenAlerts(db, acc.id, resolvedAlertKinds({ accountStatus: info.account_status }), log);
   await db.from("accounts").update({ account_status: info.account_status, timezone_name: info.timezone_name, currency: info.currency }).eq("id", acc.id);
 
   // 1. Entidades (lo vivo de Meta; el mapa para resolver campañas se completa después con todo lo que la base conoce)
@@ -162,7 +167,7 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
       insights = await ingestInsights(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.insightsDays ?? 14 });
       Object.assign(insights, await ingestHourly(db, meta, { id: acc.id, timezone_name: info.timezone_name }, { days: o.hourlyDays ?? 7 }));
     }
-    catch (e) { const msg = e instanceof Error ? e.message : String(e); await db.from("alerts").insert({ account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
+    catch (e) { const msg = e instanceof Error ? e.message : String(e); await recordAlert(db, { account_id: acc.id, kind: "insights_failed", severity: "warning", message: `Falló la ingesta de métricas: ${msg}` }, log); insights = { error: 1 }; log(`⚠ insights ${acc.name}: ${msg}`); }
   }
 
   // 5. Techo de gasto contra el presupuesto activo y el gasto real (en cada pasada; docs/06-criterio-operacion.md)
@@ -180,13 +185,10 @@ async function collectAccount(o: CollectorOptions, acc: { id: string; name: stri
       ents: rows.map(r => ({ id: r.id as string, level: r.level as "campaign" | "adset" | "ad", campaign_id: (r.campaign_id as string | null) ?? null, effective_status: (r.effective_status as string | null) ?? null, daily_budget_cents: (r.daily_budget as number | null) ?? null })) });
     ceiling = { ...check, last_closed: lastClosedDate };
     const mxn = (n: number) => `$${Math.round(n).toLocaleString("es-MX")}`;
-    const alertOnce = async (kind: string, severity: "info" | "warning", message: string) => {
-      const { count } = await db.from("alerts").select("*", { count: "exact", head: true }).eq("kind", kind).eq("account_id", acc.id).is("acknowledged_at", null).gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
-      if (!count) await db.from("alerts").insert({ account_id: acc.id, kind, severity, message, payload: check });
-    };
+    await closeOpenAlerts(db, acc.id, resolvedAlertKinds({ ceiling: check }), log);
     // política en dos capas (docs/06 G1/G2): cualquiera cerrada → el estratega no propone subidas (check.blocks_scaling)
-    if (check.over_spend) await alertOnce("spend_over_ceiling", "warning", `El gasto real del ${lastClosedDate} (${mxn(check.spend_last_closed!)}) rebasó el techo de ${mxn(check.ceiling!)}. Sin propuestas de subir presupuesto hoy.`);
-    if (check.over_committed) await alertOnce("budget_committed", "info", `Presupuesto comprometido ${check.budget_pct}% del techo: ${mxn(check.budget_active)} en ${check.active_campaigns} campañas activas contra ${mxn(check.ceiling!)} × ${check.committed_factor} = ${mxn(check.committed_limit!)}. Gasto real del ${lastClosedDate}: ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Sin propuestas de subir presupuesto mientras siga así.`);
+    if (check.over_spend) await refreshOpenAlert(db, { account_id: acc.id, kind: "spend_over_ceiling", severity: "warning", message: `El gasto real del ${lastClosedDate} (${mxn(check.spend_last_closed!)}) rebasó el techo de ${mxn(check.ceiling!)}. Sin propuestas de subir presupuesto hoy.`, payload: check }, log);
+    if (check.over_committed) await refreshOpenAlert(db, { account_id: acc.id, kind: "budget_committed", severity: "info", message: `Presupuesto comprometido ${check.budget_pct}% del techo: ${mxn(check.budget_active)} en ${check.active_campaigns} campañas activas contra ${mxn(check.ceiling!)} × ${check.committed_factor} = ${mxn(check.committed_limit!)}. Gasto real del ${lastClosedDate}: ${mxn(check.spend_last_closed ?? 0)} (${check.spend_pct ?? 0}%). Sin propuestas de subir presupuesto mientras siga así.`, payload: check }, log);
   } catch (e) { log(`⚠ techo ${acc.name}: ${e instanceof Error ? e.message : String(e)}`); ceiling = { error: 1 }; }
 
   // 6. Estratega: todas las pasadas vigilan (freno); solo la que llega con el día anterior cerrado propone
