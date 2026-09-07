@@ -20,7 +20,7 @@ export function SessionRow({ s, accountName, returnTo = "/bitacora" }: { s: Sess
         </div>
         <p className="mt-1 text-[15px] leading-snug">{s.summary}</p>
         <div className="mt-1 flex gap-3 font-mono text-[11px] text-muted">
-          <span>{s.group_count} objeto(s) · {s.event_count} evento(s)</span>
+          <span>{s.group_count} {s.group_count === 1 ? "elemento" : "elementos"}</span>
           <Link href={sessionHref(s.id, s.account_id, returnTo)} className="text-meta hover:underline">ver detalle →</Link>
         </div>
       </div>

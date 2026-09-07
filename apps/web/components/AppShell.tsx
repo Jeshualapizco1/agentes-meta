@@ -39,7 +39,7 @@ export function AppShell({ children, navigation, email, role, pathname, brandHre
     <aside className="shell-sidebar"><Brand href={brandHref} />{navigation}{session}</aside>
     <div className="shell-workspace">
       <header className="shell-mobile-bar"><Brand href={brandHref} /><Button ref={trigger} aria-haspopup="dialog" aria-controls="mobile-navigation" aria-expanded={open} onClick={() => { dialog.current?.showModal(); setOpen(true); }}>Menú</Button></header>
-      <div className="shell-context-line"><span>{demo ? "Laboratorio · datos ficticios" : "Espacio de trabajo"}</span><span>Hora CDMX</span></div>
+      <div className="shell-context-line"><span>{demo ? "Laboratorio · datos ficticios" : "Espacio de trabajo"}</span><span>Hora de la Ciudad de México</span></div>
       <main id="contenido" tabIndex={-1}>{children}</main>
     </div>
     <dialog ref={dialog} id="mobile-navigation" aria-labelledby="mobile-navigation-title" className="shell-dialog" onKeyDown={keepFocus} onClose={() => { setOpen(false); if (trigger.current?.getClientRects().length) trigger.current.focus(); }} onCancel={() => setOpen(false)} onClick={e => { if (e.target === e.currentTarget) { const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close(); } }}>

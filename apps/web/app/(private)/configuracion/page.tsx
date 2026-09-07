@@ -13,6 +13,20 @@ function Field({ name, label, help, value, unit, step = "any" }: { name: string;
   return <InputField id={`profile-${name}`} name={name} type="number" min="0" step={step} defaultValue={value ?? ""} label={label} unit={unit} help={help} className="tnum" />;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  gross_margin_pct: "Margen bruto", breakeven_roas: "ROAS de equilibrio", target_roas: "ROAS objetivo", target_cpa: "CPA objetivo",
+  daily_spend_ceiling: "Techo de gasto diario", daily_spend_floor: "Piso de gasto diario", exploration_budget_pct: "Presupuesto de exploración",
+  max_committed_budget_factor: "Factor de presupuesto comprometido", max_budget_change_pct: "Cambio máximo por movimiento",
+  max_cumulative_change_pct: "Cambio acumulado máximo", cumulative_window_days: "Ventana del acumulado", cooldown_hours: "Espera tras un cambio",
+  max_actions_per_day: "Tope de acciones por revisión", mode: "Modo", dry_run: "Simulación", whitelist_campaign_ids: "Campañas permitidas", hard_noes: "Notas de operación",
+};
+const historyValue = (value: unknown): string => value == null ? "vacío" : Array.isArray(value) ? value.join(", ") || "vacío" : typeof value === "boolean" ? value ? "sí" : "no" : typeof value === "object" ? "valor actualizado" : String(value);
+const historyLine = ([key, value]: [string, unknown]) => {
+  const change = typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  const label = FIELD_LABELS[key] ?? key.replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase());
+  return `${label}: ${change && ("before" in change || "after" in change) ? `${historyValue(change.before)} → ${historyValue(change.after)}` : historyValue(value)}`;
+};
+
 export default async function Configuracion({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const p = await searchParams; const member = await requireUser("/configuracion"); const sb = db();
   const canEdit = member.appRole === "admin";
@@ -26,10 +40,10 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
     fetchAll<ProfileCampaign>(() => sb.from("entities").select("id,name,effective_status,daily_budget").eq("account_id", accountId).eq("level", "campaign").order("name").order("id")).catch(() => null),
     sb.from("profile_changes").select("id,changed_by,created_at,patch,from_version,to_version").eq("account_id", accountId).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(5),
   ]);
-  if (profileResult.error || historyResult.error || camps === null) return <p role="alert">No se pudo cargar la configuración completa y su historial. No se habilitó el formulario para evitar sobrescribir datos desconocidos. Si falta la migración de configuración segura, contacta al administrador.</p>;
+  if (profileResult.error || historyResult.error || camps === null) return <p role="alert">La configuración no está lista para editarse. Avisa a un administrador.</p>;
   const prof = profileResult.data;
   const history = historyResult.data;
-  if (prof && (!Number.isInteger(prof.version) || prof.version < 1)) return <p role="alert">La base necesita la actualización de configuración segura antes de permitir ediciones.</p>;
+  if (prof && (!Number.isInteger(prof.version) || prof.version < 1)) return <p role="alert">La configuración no está lista para editarse. Avisa a un administrador.</p>;
   const wl = new Set<string>(prof?.whitelist_campaign_ids ?? []);
   const choices = profileCampaignChoices(camps, [...wl]);
   const be = prof?.breakeven_roas ?? (prof?.gross_margin_pct ? 100 / prof.gross_margin_pct : null);
@@ -64,12 +78,12 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
             <Field name="daily_spend_ceiling" label="Techo de gasto diario" unit="MXN" help="Referencia para alertas y restricciones del agente; no es un límite de facturación impuesto a Meta." value={prof?.daily_spend_ceiling} />
             <Field name="daily_spend_floor" label="Piso de gasto diario" unit="MXN" help="Por debajo, el agente avisa que la cuenta se está apagando." value={prof?.daily_spend_floor} />
             <Field name="exploration_budget_pct" label="Presupuesto de exploración" unit="% del techo" help="Reservado a experimentos. La suma de presupuestos de experimentos activos no puede rebasarlo." value={prof?.exploration_budget_pct ?? 10} />
-            <Field name="max_committed_budget_factor" label="Factor de presupuesto comprometido" unit="× techo" help="Si la suma de presupuestos diarios activos rebasa techo × este factor, el estratega no propone subidas y avisa (alerta info)." value={prof?.max_committed_budget_factor ?? 1.3} />
+            <Field name="max_committed_budget_factor" label="Factor de presupuesto comprometido" unit="× techo" help="Si la suma de presupuestos diarios activos rebasa techo × este factor, el agente no propone subidas y avisa." value={prof?.max_committed_budget_factor ?? 1.3} />
             <Field name="max_budget_change_pct" label="Cambio máximo por movimiento" unit="%" help="Límite operativo por cambio. No garantiza evitar cambios en el aprendizaje de Meta." value={prof?.max_budget_change_pct ?? 20} />
             <Field name="max_cumulative_change_pct" label="Cambio acumulado máximo" unit="%" help="Suma de movimientos de presupuesto sobre la misma campaña dentro de la ventana de abajo. Frena el goteo de +17% cada 3 días." value={prof?.max_cumulative_change_pct ?? 35} />
             <Field name="cumulative_window_days" label="Ventana del acumulado" unit="días" help="Días sobre los que se suma el cambio acumulado." value={prof?.cumulative_window_days ?? 7} step="1" />
             <Field name="cooldown_hours" label="Espera tras un cambio" unit="horas" help="No se vuelve a tocar la misma campaña antes de este tiempo." value={prof?.cooldown_hours ?? 72} step="1" />
-            <Field name="max_actions_per_day" label="Tope de acciones por pasada" unit="propuestas" help="Máximo de propuestas que el estratega deja pendientes en una pasada (una al día, con el día anterior cerrado). Más del doble de esto en una pasada activa el freno." value={prof?.max_actions_per_day ?? 5} step="1" />
+            <Field name="max_actions_per_day" label="Tope de acciones por revisión" unit="propuestas" help="Máximo de propuestas que el agente deja pendientes en una revisión diaria con el día anterior cerrado. Más del doble de este número activa el freno." value={prof?.max_actions_per_day ?? 5} step="1" />
           </div>
         </Card>
         <Card>
@@ -79,7 +93,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
               <label key={v} className={`flex items-start gap-2 rounded border border-line px-3 py-2 ${v === "auto" ? "opacity-50" : ""}`}><input type="radio" name="mode" value={v} defaultChecked={(prof?.mode ?? "off") === v} disabled={v === "auto"} className="mt-1" /><span><b>{l}</b><br /><span className="text-xs text-muted">{h}</span></span></label>
             ))}
           </div>
-          <label className="mb-4 flex items-start gap-2 rounded border border-line px-3 py-2 text-sm"><input type="checkbox" name="dry_run" defaultChecked={prof?.dry_run !== false} className="mt-1" /><span><b>Modo simulado (dry run)</b><br /><span className="text-xs text-muted">Activado: las propuestas se simulan, sin enviar cambios a Meta. Desactivado: una aprobación puede permitir cambios reales si el ejecutor tiene acceso. La simulación no demuestra que una orden real vaya a confirmarse. Mantener activado hasta completar las comprobaciones de seguridad y autorizar el piloto.</span></span></label>
+          <label className="mb-4 flex items-start gap-2 rounded border border-line px-3 py-2 text-sm"><input type="checkbox" name="dry_run" defaultChecked={prof?.dry_run !== false} className="mt-1" /><span><b>Simulación (no se envía nada a Meta)</b><br /><span className="text-xs text-muted">Activada: las propuestas se simulan, sin enviar cambios a Meta. Desactivada: una aprobación puede permitir cambios reales si el ejecutor tiene acceso. La simulación no demuestra que una orden real vaya a confirmarse. Mantener activada hasta que el dueño autorice cambios reales.</span></span></label>
           <p className="mb-2 text-xs text-muted">Lista blanca: solo estas campañas pueden recibir propuestas de presupuesto. Se muestran {choices.activeCount} activas y las inactivas ya seleccionadas. Pausar una campaña no elimina tu selección; desmárcala si quieres retirarla.</p>
           <div className="grid gap-1 sm:grid-cols-2">
             {choices.visible.map(c => <label key={c.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-paper"><input type="checkbox" name="whitelist" value={c.id} defaultChecked={wl.has(c.id)} /><span className="truncate">{c.name}{c.effective_status !== "ACTIVE" && <span className="ml-2 text-xs text-muted">inactiva · seleccionada</span>}</span>{c.daily_budget && <span className="tnum ml-auto font-mono text-[11px] text-muted">${(Number(c.daily_budget) / 100).toLocaleString("es-MX")}/día</span>}</label>)}
@@ -94,7 +108,7 @@ export default async function Configuracion({ searchParams }: { searchParams: Pr
         {prof?.updated_at && <span className="font-mono text-[11px] text-muted">revisión {prof.version} · última actualización {fmtDay(prof.updated_at)} {fmtTime(prof.updated_at)}</span>}
       </ProfileForm>
 
-      {history?.length ? <Card><h2 className="mb-2 font-semibold">Últimos cambios de configuración</h2><ul className="text-sm">{history.map(h => <li key={h.id} className="border-t border-line py-2 first:border-t-0"><span className="font-mono text-[11px] text-muted">{fmtDay(h.created_at)} {fmtTime(h.created_at)}</span> · <b>{String(h.changed_by).split("@")[0]}</b> · {h.to_version ? `revisión ${h.from_version} → ${h.to_version}` : "registro anterior al versionado"}<details className="mt-1"><summary className="cursor-pointer text-xs">Ver campos registrados ({Object.keys(h.patch ?? {}).length})</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(h.patch, null, 2)}</pre></details></li>)}</ul></Card> : null}
+      {history?.length ? <Card><h2 className="mb-2 font-semibold">Últimos cambios de configuración</h2><ul className="text-sm">{history.map(h => <li key={h.id} className="border-t border-line py-2 first:border-t-0"><span className="font-mono text-[11px] text-muted">{fmtDay(h.created_at)} {fmtTime(h.created_at)}</span> · <b>{String(h.changed_by).split("@")[0]}</b> · {h.to_version ? `revisión ${h.from_version} → ${h.to_version}` : "registro anterior al versionado"}<details className="mt-1"><summary className="cursor-pointer text-xs">Ver campos registrados ({Object.keys(h.patch ?? {}).length})</summary><ul className="mt-2 space-y-1 text-xs">{Object.entries(h.patch ?? {}).map(entry => <li key={entry[0]}>{historyLine(entry)}</li>)}</ul></details></li>)}</ul></Card> : null}
     </div>
   );
 }

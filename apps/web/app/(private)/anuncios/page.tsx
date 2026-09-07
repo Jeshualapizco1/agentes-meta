@@ -65,7 +65,7 @@ export default async function Anuncios({ searchParams }: { searchParams: Promise
           {shown.map(a => (
             <tr key={a.id} className={`tnum border-t border-line align-middle ${a.active ? "" : "text-muted"}`}>
               <td className="px-4 py-2"><div className="flex items-center gap-3">
-                {a.thumb ? <img src={a.thumb as string} alt="" width={48} height={48} referrerPolicy="no-referrer" className="h-12 w-12 shrink-0 rounded-lg bg-paper object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-paper font-mono text-[11px] text-muted">sin img</span>}
+                {a.thumb ? <img src={a.thumb as string} alt="" width={48} height={48} referrerPolicy="no-referrer" className="h-12 w-12 shrink-0 rounded-lg bg-paper object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-paper font-mono text-[11px] text-muted">Sin imagen</span>}
                 <div className="min-w-0 max-w-[360px]"><p className="truncate font-semibold text-ink" title={a.name}>{a.name}</p><p className="truncate font-mono text-[11px] text-muted" title={`${nameOf.get(a.campaign_id ?? "") ?? ""} › ${nameOf.get(a.parent_id ?? "") ?? ""}`}>{nameOf.get(a.campaign_id ?? "") ?? "—"} › {nameOf.get(a.parent_id ?? "") ?? "—"}</p></div>
               </div></td>
               <td className="px-2"><Chip tone={a.active ? "ok" : "neutral"}>{a.active ? "activo" : (a.effective_status ?? "—").toLowerCase()}</Chip></td>

@@ -1,7 +1,7 @@
 import { Chip } from "./Chip";
 const states = {
   off: { label: "Agente detenido", tone: "neutral", symbol: "Ⅱ" },
-  simulation: { label: "Modo simulado", tone: "meta", symbol: "◇" },
+  simulation: { label: "Simulación activa", tone: "meta", symbol: "◇" },
   simulated: { label: "Simulada", tone: "meta", symbol: "◇" },
   pending: { label: "Pendiente de revisión", tone: "amber", symbol: "◷" },
   confirmed: { label: "Ejecución confirmada", tone: "ok", symbol: "✓" },

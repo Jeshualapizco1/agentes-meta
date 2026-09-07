@@ -13,6 +13,7 @@ export const metadata = { title: "Pruebas" };
 
 const mxn0 = (v: number | null | undefined) => (v == null ? "—" : "$" + Math.round(Number(v)).toLocaleString("es-MX"));
 const addDays = (date: string, n: number) => { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const shortCalendarDate = (date: string | null) => date ? new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)).replaceAll(".", "") : "Fecha pendiente";
 const PROPOSAL: Record<string, { label: string; tone: "ok" | "crit" | "amber" | "neutral" }> = { graduar: { label: "Cumple el criterio", tone: "ok" }, descartar: { label: "No cumple el criterio", tone: "crit" }, revisar: { label: "Revisar referencias", tone: "amber" }, sin_evidencia: { label: "Faltan datos", tone: "amber" }, esperar: { label: "Recopilando resultados", tone: "neutral" } };
 type Exp = { id: string; name: string; hypothesis: string; metric: string | null; threshold: number | null; min_purchases: number; window_days: number; budget: number | null; entity_ids: string[]; campaign_ids: string[]; start_date: string | null; status: ExperimentStatus; proposed_verdict: string | null; evaluation: { verdict?: string; value?: number | null; purchases?: number; closed_days?: number } | null; verdict_reason: string | null; decided_by: string | null; decided_at: string | null; created_by: string | null; created_at: string; session_id: string | null };
 
@@ -52,13 +53,13 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone={x.status === "activo" ? "ok" : x.status === "evaluando" ? "amber" : x.status === "graduado" ? "ok" : x.status === "descartado" ? "crit" : "neutral"}>{({ activo: "En seguimiento", evaluando: "Por decidir", graduado: "Conservar", descartado: "No repetir", cancelado: "Cancelada", borrador: "Borrador" })[x.status]}</Chip>
           <b>{x.name}</b>
-          {x.status === "activo" && left != null && left <= 3 && <Chip tone="amber">{left <= 0 ? "Esperando análisis" : `Faltan ${left} día(s)`}</Chip>}
+          {x.status === "activo" && left != null && left <= 3 && <Chip tone="amber">{left <= 0 ? "Esperando resultados" : `Faltan ${left} día(s)`}</Chip>}
           {(x.status === "activo" || x.status === "evaluando") && <Chip tone={pr.tone}>{pr.label}</Chip>}
-          <span className="ml-auto font-mono text-[11px] text-muted">{x.start_date ?? "sin inicio"} → {endOf(x) ?? "—"} · {x.window_days} d · {mxn0(x.budget)}/día</span>
+          <span className="ml-auto font-mono text-[11px] text-muted">{shortCalendarDate(x.start_date)} – {shortCalendarDate(endOf(x))} · {x.window_days} d · {mxn0(x.budget)}/día</span>
         </div>
         <p className="text-sm">{x.hypothesis || "Sin cambio descrito"}</p>
         <div className="my-2 grid grid-cols-3 gap-3 rounded-xl border bg-paper p-3 text-sm"><div><p className="text-xs text-muted">Resultado {x.metric?.toUpperCase()}</p><p className="font-semibold">{x.evaluation?.value == null ? "Pendiente" : Number(x.evaluation.value).toFixed(2)}</p></div><div><p className="text-xs text-muted">Meta</p><p className="font-semibold">{x.metric === "cpa" ? "≤" : "≥"} {x.threshold ?? "—"}</p></div><div><p className="text-xs text-muted">Compras / mínimo</p><p>{x.evaluation?.purchases ?? "—"} / {x.min_purchases}</p></div></div>
-        <p className="font-mono text-[11px] text-muted">{(x.campaign_ids ?? []).map(id => nameOf.get(id) ?? id).join(" · ") || "sin campañas"}{x.session_id && <> · <a href={sessionHref(x.session_id, accountId, pageHref("/experimentos", p))} className="text-meta">sesión de origen →</a></>}</p>
+        <p className="font-mono text-[11px] text-muted">{(x.campaign_ids ?? []).map(id => nameOf.get(id) ?? id).join(" · ") || "Sin campaña vinculada"}{x.session_id && <> · <a href={sessionHref(x.session_id, accountId, pageHref("/experimentos", p))} className="text-meta">sesión de origen →</a></>}</p>
         {x.evaluation?.verdict && <details className="text-sm"><summary className="cursor-pointer text-muted">Ver evidencia y comparación</summary><p className="mt-2 rounded-xl bg-paper p-3">{x.evaluation.verdict}</p></details>}
         {x.verdict_reason && <p className="text-[13px]"><span className="text-muted">Veredicto de {x.decided_by?.split("@")[0]} ({x.decided_at ? fmtDay(x.decided_at).split(",")[0] : ""}):</span> {x.verdict_reason}</p>}
         {children}
@@ -73,7 +74,7 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
         <form key={JSON.stringify(p)} className="ml-auto flex gap-2" method="get"><label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Cuenta<select aria-label="Cuenta" name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label><button className="btn-accent px-3 py-1 text-sm">Ver</button></form>
       </div>
       {p.error && <p className="rounded-xl bg-crit-soft px-3 py-2 text-sm text-crit">{p.error}</p>}
-      {p.saved && <p className="rounded-xl bg-ok-soft px-3 py-2 text-sm text-ok">Guardado: {p.saved}.</p>}
+      {p.saved && <p className="rounded-xl bg-ok-soft px-3 py-2 text-sm text-ok">{p.saved === "activado" ? "Prueba iniciada. Se medirá con los días completos posteriores al cambio." : p.saved === "borrador" ? "Borrador guardado." : "Cambio guardado."}</p>}
 
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -91,7 +92,7 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
       {evaluating.length > 0 && <Card eyebrow="SIGUIENTE DECISIÓN" title={`Revisa estos resultados (${evaluating.length})`}>
         {evaluating.length ? <ul className="flex flex-col">{evaluating.map(x => <ExpCard key={x.id} x={x}>
           <form action={decideExperiment} className="flex flex-wrap gap-2"><input type="hidden" name="id" value={x.id} /><input name="reason" required placeholder="Razón del veredicto (obligatoria)" className="min-w-64 flex-1 rounded-lg border border-line bg-paper px-2 py-1 text-sm" /><button name="decision" value="graduado" className="rounded-xl bg-ok-soft px-3 py-1 text-sm text-ok">Conservar aprendizaje</button><button name="decision" value="descartado" className="rounded-xl bg-crit-soft px-3 py-1 text-sm text-crit">No repetir</button></form>
-        </ExpCard>)}</ul> : <p className="text-sm text-muted">Ninguno cerró su ventana todavía. El analista los evalúa en cada corrida (cada 6 h) contra su propio criterio y propone veredicto; aquí se confirma.</p>}
+        </ExpCard>)}</ul> : <p className="text-sm text-muted">Cuando una prueba cierra su ventana, aparece aquí con un veredicto propuesto para que lo confirmes.</p>}
       </Card>}
       <Card eyebrow="Corriendo" title={`En seguimiento (${active.length})`}>
         {active.length ? <ul className="flex flex-col">{active.map(x => <ExpCard key={x.id} x={x}><details className="text-sm"><summary className="cursor-pointer text-muted">Detener seguimiento</summary><form action={cancelExperiment} className="mt-3 flex flex-wrap gap-2"><input type="hidden" name="id" value={x.id} /><input name="reason" placeholder="Razón para cancelar" className="rounded-lg border border-line bg-paper px-2 py-1 text-sm" /><button className="rounded-xl border border-line px-3 py-1 text-sm">Cancelar</button></form></details></ExpCard>)}</ul> : <p className="text-sm text-muted">No hay pruebas en marcha. Prepara una arriba para empezar a medir.</p>}

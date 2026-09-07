@@ -12,6 +12,7 @@ export const metadata = { title: "Horarios" };
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const BLOCKS: [string, number, number][] = [["Madrugada 0–6", 0, 6], ["Mañana 6–12", 6, 12], ["Tarde 12–18", 12, 18], ["Noche 18–24", 18, 24]];
 const mxn0 = (v: number) => "$" + Math.round(v).toLocaleString("es-MX");
+const mxnCompact = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k` : `$${Math.round(v)}`;
 type Cell = { spend: number; purchases: number; value: number; days: Set<string> };
 const empty = (): Cell => ({ spend: 0, purchases: 0, value: 0, days: new Set() });
 /** Rampa secuencial de un solo tono: del color de la tarjeta (0) al verde --color-ok (1); magnitud, no identidad. */
@@ -55,7 +56,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días con datos · hora CDMX (cuenta en {tz})</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Horarios · {closedDays.size} días con datos · hora de la Ciudad de México</p><h1 className="text-3xl font-bold tracking-tight">Cuándo rinde la cuenta, por día y hora</h1></div>
         <form key={JSON.stringify(p)} method="get" className="ml-auto flex flex-wrap items-end gap-2">
           <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Cuenta<select aria-label="Cuenta" name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
           <select name="metric" defaultValue={metric} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm"><option value="roas">ROAS</option><option value="cpa">CPA</option><option value="spend">Gasto</option><option value="purchases">Compras</option></select>
@@ -72,9 +73,8 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
         <figcaption className="mb-2 flex items-center gap-3 text-sm"><b>{{ roas: "ROAS", cpa: "CPA", spend: "Gasto", purchases: "Compras" }[metric]} por día de la semana y hora</b><span className="ml-auto flex items-center gap-1 font-mono text-[11px] text-muted">{metric === "cpa" ? "caro" : "bajo"}<span className="inline-block h-3 w-24 rounded" style={{ background: `linear-gradient(90deg, ${ramp(0)}, ${ramp(1)})` }} />{metric === "cpa" ? "barato" : "alto"}</span></figcaption>
         <div className="overflow-x-auto"><table className="tnum w-full border-separate text-[11px]" style={{ borderSpacing: 2 }}>
           <thead><tr><th className="w-10"></th>{Array.from({ length: 24 }, (_, h) => <th key={h} className="font-mono font-normal text-muted">{h}</th>)}</tr></thead>
-          <tbody>{grid.map((row, di) => <tr key={di}><th className="text-left font-mono font-normal text-muted">{DOW[di]}</th>{row.map((c, h) => { const ok = c.spend > 0 && (metric === "spend" || metric === "purchases" || c.purchases >= MIN_PURCHASES); const v = val(c); return <td key={h} title={`${DOW[di]} ${h}:00 · gasto ${mxn0(c.spend)} · ${c.purchases.toFixed(0)} compras · ROAS ${c.spend ? (c.value / c.spend).toFixed(2) : "—"} · ${c.days.size} días`} className="h-7 rounded text-center" style={{ background: ok ? ramp(t(v)) : "var(--color-paper)", color: ok && t(v) > 0.55 ? "#0b1220" : "var(--color-muted)" }}>{ok ? (metric === "roas" ? v.toFixed(1) : metric === "purchases" ? v.toFixed(0) : Math.round(v / (metric === "spend" ? 100 : 1)) || "") : ""}</td>; })}</tr>)}</tbody>
+          <tbody>{grid.map((row, di) => <tr key={di}><th className="text-left font-mono font-normal text-muted">{DOW[di]}</th>{row.map((c, h) => { const ok = c.spend > 0 && (metric === "spend" || metric === "purchases" || c.purchases >= MIN_PURCHASES); const v = val(c); return <td key={h} title={`${DOW[di]} ${h}:00 · gasto ${mxn0(c.spend)} · ${c.purchases.toFixed(0)} compras · ROAS ${c.spend ? (c.value / c.spend).toFixed(2) : "—"} · ${c.days.size} días`} className="h-7 rounded text-center" style={{ background: ok ? ramp(t(v)) : "var(--color-paper)", color: ok && t(v) > 0.55 ? "#0b1220" : "var(--color-muted)" }}>{ok ? (metric === "roas" ? v.toFixed(1) : metric === "purchases" ? v.toFixed(0) : metric === "spend" ? mxnCompact(v) : mxn0(v)) : ""}</td>; })}</tr>)}</tbody>
         </table></div>
-        {metric === "spend" && <p className="mt-1 font-mono text-[11px] text-muted">cifras de gasto en cientos de MXN</p>}
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -93,7 +93,7 @@ export default async function Horarios({ searchParams }: { searchParams: Promise
               <div><p className="mb-1 font-mono text-[11px] uppercase text-crit">Peor ROAS</p>{worst.map(b => <p key={b.d + b.label} className="tnum"><b>{b.d} · {b.label}</b><br /><span className="text-muted">ROAS {b.roas.toFixed(2)} · {b.purchases.toFixed(0)} compras · {(b.share * 100).toFixed(0)}% del gasto</span></p>)}</div>
             </div>
           )}
-          <p className="mt-2 text-xs text-muted">Un bloque es "oportunidad" solo si supera al promedio de la cuenta ({avgRoas.toFixed(2)}) con margen y evidencia. La Fase 4 convierte esto en propuestas con umbrales configurables.</p>
+          <p className="mt-2 text-xs text-muted">Un bloque es "oportunidad" solo si supera al promedio de la cuenta ({avgRoas.toFixed(2)}) con margen y evidencia.</p>
         </Card>
       </div>
       <Card as="details" className="!p-0"><summary className="px-4 py-2 text-sm font-semibold">Tabla día × bloque</summary>

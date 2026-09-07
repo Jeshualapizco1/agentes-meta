@@ -33,7 +33,7 @@ describe("lectura de Configuración sin convertir errores en datos vacíos", () 
   });
   it("un error del perfil bloquea la edición aunque también llegue una fila", async () => {
     prepare({ version: 1 }, { message: "error privado" }); const html = await render();
-    expect(html).toContain("No se pudo cargar"); expect(html).not.toContain("expected_version"); expect(html).not.toContain("error privado");
+    expect(html).toContain("La configuración no está lista para editarse"); expect(html).not.toContain("expected_version"); expect(html).not.toContain("error privado");
   });
   it("un error de campañas no se transforma en una lista blanca vacía", async () => {
     prepare(); vi.mocked(fetchAll).mockRejectedValue(new Error("error privado"));
@@ -41,7 +41,7 @@ describe("lectura de Configuración sin convertir errores en datos vacíos", () 
   });
   it("el esquema sin versionado no permite usar el guardado anterior", async () => {
     prepare({ whitelist_campaign_ids: ["102"] });
-    expect(await render()).toContain("actualización de configuración segura");
+    expect(await render()).toContain("La configuración no está lista para editarse");
   });
   it("una cuenta no habilitada no consulta perfiles", async () => {
     const tables = prepare(); const html = await render({ account: "200" });

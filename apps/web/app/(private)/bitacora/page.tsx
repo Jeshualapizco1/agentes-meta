@@ -48,7 +48,7 @@ export default async function Bitacora({ searchParams }: { searchParams: Promise
       </div>
       <Filters accounts={accounts ?? []} actors={actors} params={params} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[["Sesiones", sessions?.length ?? 0], ["Decisiones mayores", majors], ["Reinicios de aprendizaje", resets], ["Responsables", new Set((sessions ?? []).map(s => s.actor_name)).size]].map(([l, v]) => (
+        {[["Cambios", sessions?.length ?? 0], ["Cambios importantes", majors], ["Reinicios de aprendizaje", resets], ["Responsables", new Set((sessions ?? []).map(s => s.actor_name)).size]].map(([l, v]) => (
           <Card as="div" key={String(l)} className="!p-4"><p className="font-mono text-[11px] uppercase tracking-wider text-muted">{l}</p><p className="tnum text-2xl font-bold">{v}</p></Card>
         ))}
       </div>
@@ -56,7 +56,7 @@ export default async function Bitacora({ searchParams }: { searchParams: Promise
         const list = byDay.get(k) ?? [];
         return (
           <Card key={k} className="!p-0">
-            <h2 className="flex items-baseline gap-3 border-b border-line px-4 py-2 text-lg font-semibold">{fmtDay(k + "T12:00:00-06:00")}<span className="font-mono text-[11px] text-muted">{list.length ? `${list.length} sesión(es)` : "sin cambios registrados"}</span></h2>
+            <h2 className="flex items-baseline gap-3 border-b border-line px-4 py-2 text-lg font-semibold">{fmtDay(k + "T12:00:00-06:00")}<span className="font-mono text-[11px] text-muted">{list.length ? `${list.length} ${list.length === 1 ? "cambio" : "cambios"}` : "sin cambios registrados"}</span></h2>
             {list.length ? <ul className="px-4">{list.map(s => <SessionRow key={s.id} s={s} returnTo={pageHref("/bitacora", params)} accountName={!params.account ? accName.get(s.account_id) : undefined} />)}</ul> : null}
           </Card>
         );

@@ -31,8 +31,8 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
       <Card>
         <table className="w-full text-sm"><thead><tr className="text-left font-mono text-[11px] uppercase text-muted"><th>Correo</th><th>Nombre</th><th>Rol</th><th>Acceso</th><th>Último ingreso</th><th></th></tr></thead><tbody>
           {(users ?? []).map(u => { const a = byEmail.get(u.email); return (
-            <tr key={u.email} className="border-t border-line"><td className="py-2 font-mono text-[13px]">{u.email}</td><td>{u.name ?? a?.email?.split("@")[0]}</td><td><Chip tone={u.role === "admin" ? "ok" : "neutral"}>{u.role}</Chip></td><td>{a ? <Chip tone="ok">con contraseña</Chip> : <Chip tone="amber">sin cuenta aún</Chip>}</td><td className="font-mono text-[12px] text-muted">{a?.last_sign_in_at ? `${fmtDay(a.last_sign_in_at)} ${fmtTime(a.last_sign_in_at)}` : "nunca"}</td>
-              <td className="text-right">{u.email !== me.email?.toLowerCase() && <form action={removeUser}><input type="hidden" name="email" value={u.email} /><button className="text-xs text-crit hover:underline">eliminar</button></form>}</td></tr>); })}
+            <tr key={u.email} className="border-t border-line"><td className="py-2 font-mono text-[13px]">{u.email}</td><td>{u.name ?? a?.email?.split("@")[0]}</td><td><Chip tone={u.role === "admin" ? "ok" : "neutral"}>{u.role === "admin" ? "Administrador" : "Media buyer"}</Chip></td><td>{a ? <Chip tone="ok">con contraseña</Chip> : <Chip tone="amber">sin cuenta aún</Chip>}</td><td className="font-mono text-[12px] text-muted">{a?.last_sign_in_at ? `${fmtDay(a.last_sign_in_at)} ${fmtTime(a.last_sign_in_at)}` : "nunca"}</td>
+              <td className="text-right">{u.email !== me.email?.toLowerCase() && <form action={removeUser}><input type="hidden" name="email" value={u.email} /><button className="text-xs text-crit hover:underline">Quitar acceso</button></form>}</td></tr>); })}
         </tbody></table>
       </Card>
     </div>

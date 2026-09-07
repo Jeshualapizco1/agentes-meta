@@ -29,7 +29,7 @@ export default async function Sesion({ params, searchParams }: { params: Promise
       <div>
         <p className="font-mono text-[11px] uppercase tracking-wider text-muted">{acc?.name} · {fmtDay(s.started_at)} · {fmtTime(s.started_at)}–{fmtTime(s.ended_at)} CDMX</p>
         <h1 className="text-2xl font-bold tracking-tight">{s.actor_name}: {s.summary}</h1>
-        <div className="mt-2 flex gap-2"><Chip tone={s.significance === "major" ? "ok" : "neutral"}>{KIND_LABEL[s.kind] ?? s.kind}</Chip>{s.resets_learning && <Chip tone="amber">↻ reinicia aprendizaje</Chip>}<Chip>{s.group_count} objeto(s) · {s.event_count} evento(s)</Chip></div>
+        <div className="mt-2 flex gap-2"><Chip tone={s.significance === "major" ? "ok" : "neutral"}>{KIND_LABEL[s.kind] ?? s.kind}</Chip>{s.resets_learning && <Chip tone="amber">↻ reinicia aprendizaje</Chip>}<Chip>{s.group_count} {s.group_count === 1 ? "elemento tocado" : "elementos tocados"}</Chip></div>
       </div>
 
       <Card>
@@ -47,15 +47,15 @@ export default async function Sesion({ params, searchParams }: { params: Promise
       </Card>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold">Objetos tocados</h2>
+        <h2 className="text-xl font-semibold">Qué cambió</h2>
         {(groups ?? []).map(g => (
           <Card as="details" key={g.id} className="!p-0">
             <summary className="flex flex-wrap items-center gap-2 px-4 py-3">
-              <Chip tone="neutral">{({ CAMPAIGN_GROUP: "campaña", CAMPAIGN: "ad set", ADGROUP: "anuncio", ACCOUNT: "cuenta" } as Record<string, string>)[g.object_type] ?? g.object_type}</Chip>
+              <Chip tone="neutral">{({ CAMPAIGN_GROUP: "campaña", CAMPAIGN: "conjunto de anuncios", ADGROUP: "anuncio", ACCOUNT: "cuenta" } as Record<string, string>)[g.object_type] ?? "elemento"}</Chip>
               <span className="font-semibold">{g.object_name}</span>
               <span className="text-muted">— {g.summary}</span>
               {g.resets_learning && <Chip tone="amber">↻</Chip>}
-              <span className="ml-auto font-mono text-[11px] text-muted">{fmtTime(g.started_at)} · {g.event_count} ev.</span>
+              <span className="ml-auto font-mono text-[11px] text-muted">{fmtTime(g.started_at)}</span>
             </summary>
             <div className="border-t border-line px-4 py-3 text-sm">
               {g.details?.budget && <p className="mb-2">Presupuesto {g.details.budget.period === "lifetime" ? "total" : "diario"}: <b className="tnum">{mxn(g.details.budget.oldCents ?? 0)} → {mxn(g.details.budget.newCents ?? 0)}</b> ({g.details.budget.pct >= 0 ? "+" : ""}{g.details.budget.pct}%)</p>}
@@ -63,7 +63,7 @@ export default async function Sesion({ params, searchParams }: { params: Promise
                 <table className="mb-2 w-full text-[13px]"><thead><tr className="text-left font-mono text-[11px] uppercase text-muted"><th className="py-1">Campo</th><th>Antes</th><th>Después</th></tr></thead>
                   <tbody>{Object.entries(g.details.targeting as Record<string, { old?: string; new?: string }>).map(([k, v]) => <tr key={k} className="border-t border-line align-top"><td className="py-1 pr-2 font-semibold">{k}</td><td className="pr-2 text-muted">{v.old ?? "—"}</td><td>{v.new ?? "—"}</td></tr>)}</tbody></table>
               )}
-              <ul className="font-mono text-[12px] text-muted">{(evByGroup.get(g.id) ?? []).map(e => <li key={e.id}>{fmtTime(e.event_time)} {e.event_type}{e.old_value != null || e.new_value != null ? ` · ${short(e.old_value)} → ${short(e.new_value)}` : ""}</li>)}</ul>
+              <details className="mt-3"><summary className="cursor-pointer text-xs text-muted">Detalle técnico</summary><ul className="mt-2 font-mono text-[12px] text-muted">{(evByGroup.get(g.id) ?? []).map(e => <li key={e.id}>{fmtTime(e.event_time)} {e.event_type}{e.old_value != null || e.new_value != null ? ` · ${short(e.old_value)} → ${short(e.new_value)}` : ""}</li>)}</ul></details>
             </div>
           </Card>
         ))}
@@ -71,4 +71,4 @@ export default async function Sesion({ params, searchParams }: { params: Promise
     </div>
   );
 }
-function short(v: unknown): string { if (v == null) return "∅"; const s = typeof v === "string" ? v : JSON.stringify(v); return s.length > 60 ? s.slice(0, 57) + "…" : s; }
+function short(v: unknown): string { if (v == null) return "vacío"; const s = typeof v === "string" ? v : JSON.stringify(v); return s.length > 60 ? s.slice(0, 57) + "…" : s; }

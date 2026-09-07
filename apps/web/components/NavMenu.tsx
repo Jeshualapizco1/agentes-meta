@@ -24,7 +24,7 @@ export function NavMenu({ pathname, search, role, Link = PlainLink }: { pathname
     <details key={`${administration}`} open={administration || undefined} className="shell-admin"><summary>Administración</summary><div>
       {link("/configuracion", role === "admin" ? "Configuración" : "Configuración · lectura")}
       {role === "admin" && link("/usuarios", "Usuarios")}
-      {link("/estado", "Estado del sistema")}
+      {link("/estado", "Estado de los datos")}
     </div></details>
   </nav>;
 }

@@ -5,6 +5,7 @@ import { buildRealHoySnapshot, type ReadResult, type RealBrake, type RealDecisio
 import { HoyLive } from "@/components/hoy/HoyLive";
 import { DataState } from "@/components/DataState";
 import { toZoned } from "@agentes-meta/core";
+import type { AlertRow } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Hoy" };
@@ -40,7 +41,7 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
     safe<RealProfile>(sb.from("account_profiles").select("mode,dry_run,target_roas").eq("account_id", account.id).maybeSingle()),
     safePaged<RealProposal>(() => sb.from("proposals").select("id,account_id,rule_name,action,entity_name,entity_level,entity_id,before_value,after_value,move_to_entity_id,move_to_before,evidence,locks,created_at,expires_at").eq("account_id", account.id).eq("status", "pendiente").order("created_at", { ascending: false })),
     safe<RealDecision[]>(sb.from("proposals").select("id,status,action,entity_name,before_value,after_value,decided_at,decision_reason,execution_note").eq("account_id", account.id).in("status", ["aprobada", "simulada", "ejecutada", "fallida", "rechazada"]).order("decided_at", { ascending: false }).limit(8)),
-    safe<{ id: string; kind: string; severity: string; message: string; created_at: string }[]>(sb.from("alerts").select("id,kind,severity,message,created_at").is("acknowledged_at", null).or(`account_id.eq.${account.id},account_id.is.null`).order("created_at", { ascending: false }).limit(8)),
+    safe<AlertRow[]>(sb.from("alerts").select("id,kind,severity,message,created_at,payload,account_id").is("acknowledged_at", null).or(`account_id.eq.${account.id},account_id.is.null`).order("created_at", { ascending: false }).limit(8)),
     safe<{ id: string; actor_name: string | null; summary: string; started_at: string }[]>(sb.from("change_sessions").select("id,actor_name,summary,started_at").eq("account_id", account.id).eq("actor_kind", "person").gte("started_at", activitySince).order("started_at", { ascending: false }).limit(6)),
     safe<RealBrake>(sb.from("emergency_brakes").select("active,engage_reason").eq("account_id", account.id).maybeSingle()),
     safe<RealRun>(sb.from("agent_runs").select("started_at,finished_at,status,stats").eq("agent", "collector").eq("account_id", account.id).order("started_at", { ascending: false }).limit(1).maybeSingle()),

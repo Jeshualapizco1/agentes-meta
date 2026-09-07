@@ -1,6 +1,6 @@
 import { isCalendarDate } from "./range";
 
-/** Contrato de presentación del piloto. No autoriza acciones ni reemplaza los candados del servidor. */
+/** Contrato de presentación. No autoriza acciones ni reemplaza los candados del servidor. */
 export type ReadingState = "ready" | "partial" | "stale" | "error" | "loading";
 export type HoyMetricState = ReadingState | "missing" | "forbidden";
 export type Section<T> = { state: "ready"; data: T } | { state: "error" | "loading"; data?: never };
@@ -19,7 +19,7 @@ export type HoyProposal = {
 };
 export type DecisionStatus = "approved" | "simulated" | "execution-recorded" | "failed" | "rejected" | "unconfirmed";
 export type HoyDecision = { id: string; entity: string; action: string; status: DecisionStatus; at: string; detail: string };
-export type HoyAlert = { id: string; severity: "critical" | "warning" | "info"; title: string; description: string; at: string };
+export type HoyAlert = { id: string; severity: "critical" | "warning" | "info"; title: string; description: string; at: string; action?: { label: string; href: string } };
 export type HoySnapshot = {
   account: HoyAccount; asOf: string; reportingDate: string; access: "allowed" | "forbidden";
   readings: { state: ReadingState; rows: DailyReading[] };
@@ -83,7 +83,7 @@ export function orderedAlerts(alerts: HoyAlert[]): HoyAlert[] {
 export const decisionPresentation: Record<DecisionStatus, { label: string; tone: "neutral" | "meta" | "crit" | "amber"; explanation: string }> = {
   approved: { label: "Aprobada · por confirmar", tone: "amber", explanation: "La aprobación no acredita un cambio en Meta." },
   simulated: { label: "Simulada", tone: "meta", explanation: "No se enviaron cambios a Meta." },
-  "execution-recorded": { label: "Ejecución registrada", tone: "neutral", explanation: "Registro del sistema; no es una verificación nueva del estado en Meta." },
+  "execution-recorded": { label: "Aplicada", tone: "neutral", explanation: "Registrada como aplicada; verifica en Meta si necesitas confirmarlo." },
   failed: { label: "Ejecución fallida", tone: "crit", explanation: "Revisa el alcance: un fallo no garantiza que no hubo cambios." },
   rejected: { label: "Rechazada", tone: "neutral", explanation: "Decisión de revisión; no confirma el estado actual de Meta." },
   unconfirmed: { label: "Resultado por confirmar", tone: "amber", explanation: "No repitas la acción hasta verificar si hubo cambios." },
@@ -96,7 +96,7 @@ export function previewApprovalBlock(snapshot: HoySnapshot, proposal: HoyProposa
   if (proposal.accountId !== snapshot.account.id || current.accountId !== snapshot.account.id) return "La propuesta pertenece a otra cuenta.";
   // La referencia seleccionada puede ser vieja: comprobar la versión presente en el snapshot.
   proposal = current;
-  if (snapshot.agent.execution === "live") return "La ejecución real no está habilitada en este piloto.";
+  if (snapshot.agent.execution === "live") return "La ejecución real no está habilitada por ahora.";
   if (snapshot.agent.execution !== "simulation") return "No se pudo verificar el modo de ejecución.";
   if (snapshot.agent.brake !== "released") return snapshot.agent.brake === "engaged" ? "El freno del agente está activo." : "No se pudo verificar el freno del agente.";
   if (snapshot.agent.mode !== "semi") return snapshot.agent.mode === "off" ? "El agente está detenido." : "No se pudo verificar el modo del agente.";
@@ -105,7 +105,7 @@ export function previewApprovalBlock(snapshot: HoySnapshot, proposal: HoyProposa
   if (snapshot.decisions.data.some(d => d.status === "unconfirmed" || d.status === "approved" || d.status === "failed")) return "Primero verifica los resultados de ejecución pendientes o fallidos.";
   if (!Number.isFinite(Date.parse(now)) || !proposal.expiresAt || !Number.isFinite(Date.parse(proposal.expiresAt)) || Date.parse(proposal.expiresAt) <= Date.parse(now)) return "La propuesta venció o no tiene una vigencia verificable.";
   if (!proposal.evidence.length || !proposal.locks.length || proposal.locks.some(l => !l.ok)) return "Revisa la evidencia y los candados de esta propuesta.";
-  if (proposal.change.kind === "move") return "La revisión de movimientos entre campañas es de solo lectura en este piloto.";
+  if (proposal.change.kind === "move") return "La revisión de movimientos entre campañas es de solo lectura por ahora.";
   if (proposal.change.kind === "budget" && (!valid(proposal.change.beforeMinor) || !valid(proposal.change.afterMinor) || !Number.isSafeInteger(proposal.change.beforeMinor) || !Number.isSafeInteger(proposal.change.afterMinor) || proposal.change.afterMinor <= 0)) return "El importe de la propuesta no es válido.";
   return null;
 }

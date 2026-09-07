@@ -8,7 +8,7 @@ const numericFields = {
   daily_spend_floor: { label: "Piso de gasto diario", nullable: true },
   max_budget_change_pct: { label: "Cambio máximo por movimiento" },
   cooldown_hours: { label: "Espera tras un cambio", integer: true },
-  max_actions_per_day: { label: "Tope de acciones por pasada", integer: true },
+  max_actions_per_day: { label: "Tope de acciones por revisión", integer: true },
   max_cumulative_change_pct: { label: "Cambio acumulado máximo" },
   cumulative_window_days: { label: "Ventana del acumulado", integer: true, positive: true },
   max_committed_budget_factor: { label: "Factor de presupuesto comprometido", positive: true },

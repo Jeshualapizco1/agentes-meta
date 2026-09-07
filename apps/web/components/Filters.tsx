@@ -19,9 +19,9 @@ export function Filters({ accounts, actors, params }: { accounts: Account[]; act
         </select></label>
       <label className="flex flex-col gap-1 text-xs text-muted">Mostrar
         <select name="sig" defaultValue={cur.sig} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm text-ink">
-          <option value="decisions">Decisiones (mayores y menores)</option>
-          <option value="major">Solo mayores</option>
-          <option value="all">Todo, incluido sistema</option>
+          <option value="decisions">Decisiones</option>
+          <option value="major">Importantes</option>
+          <option value="all">Todos</option>
         </select></label>
       <DateRange days={range.days} from={params.from} to={params.to} />
       <button className="btn-accent px-3 py-1.5 text-sm font-semibold text-on-accent">Filtrar</button>

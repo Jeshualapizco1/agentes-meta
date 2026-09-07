@@ -52,7 +52,7 @@ export function evaluateWorkspace(workspace: DecisionWorkspace, rules = workspac
   const proposals = pass.proposals.map(p => {
     const reasons: string[] = [];
     if (workspace.profile.mode !== "semi") reasons.push("La cuenta debe estar en revisión humana (semi).");
-    if (workspace.profile.dry_run !== true) reasons.push("Esta integración de decisiones requiere el modo simulado.");
+    if (workspace.profile.dry_run !== true) reasons.push("Esta integración de decisiones requiere la simulación activada.");
     if (workspace.freezes.some(f => f.entity_id === p.entity_id || f.entity_id === p.campaign_id)) reasons.push("La entidad o su campaña están congeladas.");
     if (workspace.experiments.some(e => e.campaign_ids.includes(p.campaign_id ?? p.entity_id))) reasons.push("La campaña participa en un experimento activo o en evaluación.");
     if (workspace.pending.some(x => x.id !== excludingProposal && (x.entity_id === p.entity_id || (x.campaign_id && x.campaign_id === p.campaign_id)) && ["pendiente", "aprobada", "fallida"].includes(x.status))) reasons.push("Ya hay una decisión pendiente o un resultado por resolver en la campaña.");

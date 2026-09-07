@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Card } from "./Card";
+import { shortDate } from "@/lib/hoy-view";
 
 export type Point = { date: string; value: number | null; closed: boolean };
 /** Formatos serializables (un componente cliente no puede recibir funciones desde el servidor). */
@@ -35,7 +36,7 @@ export function TimeSeries({ title, unit, points, markers, fmt = "mxn0", height 
         <g
         onMouseMove={e => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * W; let best = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i]! - x) < Math.abs(xs[best]! - x)) best = i; setHover(best); }}>
         {ticks.map(t => <g key={t}><line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" /><text x={padL - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{format(t)}</text></g>)}
-        {points.map((p, i) => (i % Math.ceil(points.length / 8) === 0 || i === points.length - 1) && <text key={p.date} x={xs[i]} y={H - padB + 16} textAnchor="middle" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{p.date.slice(5)}</text>)}
+        {points.map((p, i) => (i % Math.ceil(points.length / 8) === 0 || i === points.length - 1) && <text key={p.date} x={xs[i]} y={H - padB + 16} textAnchor="middle" fontSize="11" fill="var(--color-muted)" fontFamily="var(--font-mono)">{shortDate(p.date).replace(/ \d{4}$/, "")}</text>)}
         {lastClosed != null && lastClosed < points.length - 1 && <rect x={xs[lastClosed]} y={padT} width={(xs[points.length - 1] ?? 0) - (xs[lastClosed] ?? 0)} height={ih} fill="var(--color-amber-soft)" opacity="0.6" />}
         <path d={path} fill="none" stroke={`url(#ts-${title.replace(/\W+/g, "-")})`} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="glow-line" />
         {[...byDate.entries()].map(([i, ms]) => { const p = points[i]!; const cy = p.value != null ? y(p.value) : padT + ih; const resets = ms.some(m => m.resets); return (
@@ -58,7 +59,7 @@ export function Tip({ x, y, date, value, extra = [] }: { x: number; y: number; d
   const below = y < 35, right = x > 80, left = x < 20;
   return (
     <div className="pointer-events-none absolute z-10 rounded-xl border border-line bg-surface-solid px-3 py-2 shadow-lg" style={{ left: `${x}%`, top: `${y}%`, transform: `translate(${left ? "0" : right ? "-100%" : "-50%"}, ${below ? "14px" : "calc(-100% - 14px)"})` }}>
-      <p className="whitespace-nowrap font-mono text-[12px] font-bold text-ink">{date}</p>
+      <p className="whitespace-nowrap font-mono text-[12px] font-bold text-ink">{shortDate(date)}</p>
       <p className="tnum whitespace-nowrap text-lg font-bold leading-tight">{value}</p>
       {extra.map(e => <p key={e} className="whitespace-nowrap font-mono text-[11px] text-muted">{e}</p>)}
     </div>

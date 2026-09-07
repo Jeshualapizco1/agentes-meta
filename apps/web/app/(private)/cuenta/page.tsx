@@ -50,7 +50,7 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-4">
-        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Cuenta · {range.label} · zona {acc?.timezone_name}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: números y cambios en la misma línea</h1></div>
+        <div><p className="font-mono text-[11px] uppercase tracking-wider text-muted">Cuenta · {range.label}</p><h1 className="text-3xl font-bold tracking-tight">{acc?.name ?? accountId}: números y cambios en la misma línea</h1></div>
         <form key={JSON.stringify(p)} className="ml-auto flex flex-wrap items-end gap-2" method="get">
           <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Cuenta<select aria-label="Cuenta" name="account" defaultValue={accountId} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">{(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
           <DateRange days={range.days} from={p.from} to={p.to} presets={[14, 30, 60, 90]} label="Periodo" />
@@ -71,7 +71,7 @@ export default async function Cuenta({ searchParams }: { searchParams: Promise<R
           {prof.daily_spend_ceiling && <Chip tone={s7 / Math.max(1, last7.length) <= Number(prof.daily_spend_ceiling) ? "ok" : "crit"}>techo {mxn0(Number(prof.daily_spend_ceiling))}/día · promedio {mxn0(s7 / Math.max(1, last7.length))}</Chip>}
           <a href={`/configuracion?account=${accountId}`} className="text-meta">editar →</a></div>
       ) : <p className="text-sm text-muted">Sin objetivos configurados todavía. <a href={`/configuracion?account=${accountId}`} className="text-meta">Captúralos en Configuración →</a></p>}
-      <p className="text-sm text-muted">Cada punto sobre la línea es una sesión de cambios de una persona. <span className="text-amber">Ámbar ↻</span> = reinició la fase de aprendizaje. La franja ámbar es el día en curso: se muestra, no se juzga. Los números son los que reporta Meta (con wetracked.io como fuente de atribución). <Chip tone="amber">preliminar hasta 7 días</Chip></p>
+      <p className="text-sm text-muted">Cada punto sobre la línea es una sesión de cambios de una persona. <span className="text-amber">Ámbar ↻</span> = reinició la fase de aprendizaje. La franja ámbar es el día en curso: se muestra, no se juzga. Los números son los que reporta Meta. <Chip tone="amber">preliminar hasta 7 días</Chip></p>
       <TimeSeries title="Gasto diario" unit="MXN" points={spend} markers={markers} fmt="mxn0" />
       <TimeSeries title="ROAS diario" points={roas} markers={markers} fmt="fixed1" />
       <TimeSeries title="CPA diario" unit="MXN por compra" points={cpa} markers={markers} fmt="mxn0" />

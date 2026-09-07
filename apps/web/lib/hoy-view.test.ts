@@ -60,7 +60,7 @@ describe("lectura determinista de Hoy", () => {
   });
   it("los estados aprobada/fallida/registrada no prometen una confirmación de Meta", () => {
     expect(decisionPresentation.approved.label).toContain("por confirmar"); expect(decisionPresentation.failed.explanation).toContain("no garantiza");
-    expect(decisionPresentation["execution-recorded"].label).toBe("Ejecución registrada");
+    expect(decisionPresentation["execution-recorded"].label).toBe("Aplicada");
     expect(Object.values(decisionPresentation).every(s => s.label !== "Ejecución confirmada")).toBe(true);
   });
   it("formatea el timestamp con fecha y zona inequívocas", () => {

@@ -1,5 +1,6 @@
 import { LOCK_LABEL, RULE_ACTION_LABEL, type LockName, type RuleAction } from "@agentes-meta/core";
 import type { DailyReading, HoyAlert, HoyDecision, HoyProposal, HoySnapshot, Section } from "./hoy-view";
+import { presentAlert, type AlertRow } from "./alerts";
 
 export type ReadResult<T> = { data: T; error: null } | { data: null; error: true };
 export type RealInsight = { date: string; spend: unknown; purchases: unknown; purchase_value: unknown; is_closed_day: boolean; fetched_at: string };
@@ -11,7 +12,8 @@ export type RealBrake = { active: boolean; engage_reason: string | null };
 
 const record = (value: unknown): Record<string, unknown> | null => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const list = (value: unknown): Record<string, unknown>[] => Array.isArray(value) ? value.map(record).filter((x): x is Record<string, unknown> => !!x) : [];
-const display = (value: unknown) => typeof value === "string" ? value : value == null ? "—" : typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value);
+const display = (value: unknown) => typeof value === "string" ? value : value == null ? "—" : typeof value === "number" || typeof value === "boolean" ? String(value) : "Dato no disponible";
+const simpleDisplay = (value: unknown): string | null => typeof value === "string" || typeof value === "number" ? String(value) : null;
 const finite = (value: unknown) => { const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN; return Number.isFinite(number) && number >= 0 ? number : null; };
 const minor = (value: unknown) => { const number = finite(value); const cents = number === null ? NaN : Math.round(number * 100); if (!Number.isSafeInteger(cents)) throw new Error("Importe de propuesta inválido"); return cents; };
 const section = <T, U>(read: ReadResult<T>, map: (data: T) => U): Section<U> => {
@@ -53,14 +55,15 @@ export function mapRealProposal(row: RealProposal): HoyProposal {
 
 function mapDecision(row: RealDecision): HoyDecision {
   const status: HoyDecision["status"] = row.status === "simulada" ? "simulated" : row.status === "rechazada" ? "rejected" : row.status === "fallida" ? "failed" : row.status === "ejecutada" ? "execution-recorded" : row.status === "aprobada" ? "approved" : "unconfirmed";
-  const values = row.before_value == null && row.after_value == null ? "" : ` · ${display(row.before_value)} → ${display(row.after_value)}`;
+  const before = simpleDisplay(row.before_value), after = simpleDisplay(row.after_value);
+  const values = before !== null && after !== null ? ` · ${before} → ${after}` : "";
   return { id: row.id, entity: row.entity_name ?? "Entidad sin nombre", action: `${RULE_ACTION_LABEL[row.action as RuleAction] ?? row.action.replaceAll("_", " ")}${values}`, status, at: row.decided_at ?? "", detail: row.execution_note ?? row.decision_reason ?? "Sin nota adicional registrada." };
 }
 
 export function buildRealHoySnapshot(input: {
   account: { id: string; name: string; currency: string; timezone_name: string }; reportingDate: string; asOf: string;
   insights: ReadResult<RealInsight[]>; profile: ReadResult<RealProfile | null>; proposals: ReadResult<RealProposal[]>; decisions: ReadResult<RealDecision[]>;
-  alerts: ReadResult<{ id: string; kind: string; severity: string; message: string; created_at: string }[]>;
+  alerts: ReadResult<AlertRow[]>;
   activity: ReadResult<{ id: string; actor_name: string | null; summary: string; started_at: string }[]>;
   brake: ReadResult<RealBrake | null>; collector: ReadResult<RealRun | null>; strategist: ReadResult<RealRun | null>;
 }): HoySnapshot {
@@ -73,7 +76,7 @@ export function buildRealHoySnapshot(input: {
     readings: { state: readingState, rows: input.insights.error ? [] : aggregateRealInsights(input.insights.data) },
     agent: { mode: profile?.mode === "off" || profile?.mode === "semi" || profile?.mode === "auto" ? profile.mode : "unknown", execution: profile ? profile.dry_run ? "simulation" : "live" : "unknown", brake: input.brake.error ? "unknown" : brake?.active ? "engaged" : "released", brakeReason: brake?.engage_reason ?? undefined, collectedAt: collector?.finished_at ?? collector?.started_at ?? null, collection: input.collector.error || !collector ? "unknown" : collector.status === "ok" ? "ok" : collector.status === "failed" ? "error" : "running", strategyAt: input.strategist.error ? null : input.strategist.data?.finished_at ?? input.strategist.data?.started_at ?? null },
     proposals: section(input.proposals, rows => rows.map(mapRealProposal)),
-    alerts: section(input.alerts, rows => rows.map((row): HoyAlert => ({ id: row.id, severity: row.severity === "critical" ? "critical" : row.severity === "warning" ? "warning" : "info", title: row.kind.replaceAll("_", " "), description: row.message, at: row.created_at }))),
+    alerts: section(input.alerts, rows => rows.map((row): HoyAlert => presentAlert(row, { accountId: input.account.id }))),
     decisions: section(input.decisions, rows => rows.map(mapDecision)),
     activity: section(input.activity, rows => rows.map(row => ({ id: row.id, actor: row.actor_name ?? "Persona sin nombre", summary: row.summary, at: row.started_at }))),
   };
