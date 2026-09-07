@@ -1,3 +1,7 @@
+import { loadCampaignReadings } from "@/lib/campaign-readings";
+import { loadSessionResults } from "@/lib/session-results";
+import { presentResult } from "@/lib/results";
+import type { HoySnapshot } from "@/lib/hoy-view";
 import { db, fetchAll } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { shiftCalendarDay } from "@/lib/hoy-view";
@@ -36,20 +40,29 @@ export default async function Hoy({ searchParams }: { searchParams: Promise<Reco
   const from = shiftCalendarDay(reportingDate, -14);
   const to = shiftCalendarDay(reportingDate, -1);
   const activitySince = new Date(now.getTime() - 14 * 86_400_000).toISOString();
-  const [insights, profile, proposals, decisions, alerts, activity, brake, collector, strategist] = await Promise.all([
+  const [insights, profile, proposals, decisions, alerts, activity, brake, collector, strategist, campaigns, evaluating] = await Promise.all([
     safePaged<RealInsight>(() => sb.from("insights_daily").select("date,spend,purchases,purchase_value,is_closed_day,fetched_at").eq("account_id", account.id).eq("level", "campaign").gte("date", from).lte("date", to).order("date")),
     safe<RealProfile>(sb.from("account_profiles").select("mode,dry_run,target_roas").eq("account_id", account.id).maybeSingle()),
     safePaged<RealProposal>(() => sb.from("proposals").select("id,account_id,rule_name,action,entity_name,entity_level,entity_id,before_value,after_value,move_to_entity_id,move_to_before,evidence,locks,created_at,expires_at").eq("account_id", account.id).eq("status", "pendiente").order("created_at", { ascending: false })),
     safe<RealDecision[]>(sb.from("proposals").select("id,status,action,entity_name,before_value,after_value,decided_at,decision_reason,execution_note").eq("account_id", account.id).in("status", ["aprobada", "simulada", "ejecutada", "fallida", "rechazada"]).order("decided_at", { ascending: false }).limit(8)),
     safe<AlertRow[]>(sb.from("alerts").select("id,kind,severity,message,created_at,payload,account_id").is("acknowledged_at", null).or(`account_id.eq.${account.id},account_id.is.null`).order("created_at", { ascending: false }).limit(8)),
-    safe<{ id: string; actor_name: string | null; summary: string; started_at: string }[]>(sb.from("change_sessions").select("id,actor_name,summary,started_at").eq("account_id", account.id).eq("actor_kind", "person").gte("started_at", activitySince).order("started_at", { ascending: false }).limit(6)),
+    safe<{ id: string; actor_name: string | null; summary: string; started_at: string }[]>(sb.from("change_sessions").select("id,actor_name,summary,started_at").eq("account_id", account.id).eq("actor_kind", "person").eq("significance", "major").gte("started_at", activitySince).order("started_at", { ascending: false }).limit(5)),
     safe<RealBrake>(sb.from("emergency_brakes").select("active,engage_reason").eq("account_id", account.id).maybeSingle()),
     safe<RealRun>(sb.from("agent_runs").select("started_at,finished_at,status,stats").eq("agent", "collector").eq("account_id", account.id).order("started_at", { ascending: false }).limit(1).maybeSingle()),
     safe<RealRun>(sb.from("agent_runs").select("started_at,finished_at,status,stats").eq("agent", "strategist").eq("account_id", account.id).order("started_at", { ascending: false }).limit(1).maybeSingle()),
+    loadCampaignReadings(account.id, reportingDate, now.toISOString()).then(data => ({ state: "ready", data }) as HoySnapshot["campaigns"]).catch(() => ({ state: "error" }) as HoySnapshot["campaigns"]),
+    safePaged<{ id: string }>(() => sb.from("experiments").select("id").eq("account_id", account.id).eq("status", "evaluando").order("id")),
   ]);
+  let activityWithResults = arrayResult(activity);
+  if (!activityWithResults.error && activityWithResults.data.length) {
+    try {
+      const windows = await loadSessionResults(sb, activityWithResults.data.map(s => s.id));
+      activityWithResults.data = activityWithResults.data.map(s => ({ ...s, ...(windows.has(s.id) ? { result: presentResult(windows.get(s.id)!) } : {}) }));
+    } catch { activityWithResults = { error: true, data: null }; }
+  }
   const snapshot = buildRealHoySnapshot({
     account, reportingDate, asOf: now.toISOString(), insights, profile,
-    proposals, decisions: arrayResult(decisions), alerts: arrayResult(alerts), activity: arrayResult(activity), brake, collector, strategist,
+    proposals, decisions: arrayResult(decisions), alerts: arrayResult(alerts), activity: activityWithResults, campaigns, evaluatingExperiments: evaluating.error ? undefined : evaluating.data.length, brake, collector, strategist,
   });
   return <HoyLive snapshot={snapshot} targetRoas={profile.data?.target_roas == null ? null : Number(profile.data.target_roas)} accounts={accounts.map(item => ({ id: item.id, name: item.name }))} />;
 }

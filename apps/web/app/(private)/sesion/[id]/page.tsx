@@ -1,9 +1,11 @@
+import { loadSessionResults } from "@/lib/session-results";
+import { SessionResults } from "@/components/SessionResults";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fmtDay, fmtTime, KIND_LABEL, mxn } from "@/lib/format";
 import { Chip } from "@/components/Chip";
 import { notFound } from "next/navigation";
-import { annotate } from "@/app/sesion/[id]/actions";
+import { annotate, registerSessionAsExperiment } from "@/app/sesion/[id]/actions";
 import { Card } from "@/components/Card";
 import { sessionReturnPath } from "@/lib/navigation";
 export const dynamic = "force-dynamic";
@@ -14,11 +16,14 @@ export default async function Sesion({ params, searchParams }: { params: Promise
   const { id } = await params; const user = await requireUser(`/sesion/${id}`); const sb = db();
   const { data: s } = await sb.from("change_sessions").select("*").eq("id", id).maybeSingle();
   if (!s) notFound();
-  const [{ data: groups }, { data: notes }, { data: acc }] = await Promise.all([
+  const [{ data: groups }, { data: notes }, { data: acc }, windows, { data: experiment, error: experimentError }] = await Promise.all([
     sb.from("change_groups").select("*").eq("session_id", id).order("started_at"),
     sb.from("annotations").select("*").eq("session_id", id).order("created_at"),
-    sb.from("accounts").select("name,timezone_name").eq("id", s.account_id).single(),
+    sb.from("accounts").select("name,timezone_name,currency").eq("id", s.account_id).single(),
+    loadSessionResults(sb, [id]),
+    sb.from("experiments").select("id,status").eq("session_id", id).eq("account_id", s.account_id).order("created_at").limit(1).maybeSingle(),
   ]);
+  if (experimentError) throw new Error("No se pudo comprobar la prueba vinculada.");
   const ids = (groups ?? []).map(g => g.id);
   const { data: events } = ids.length ? await sb.from("change_events").select("id,group_id,event_time,event_type,extra_data,old_value,new_value").in("group_id", ids).order("event_time") : { data: [] };
   const evByGroup = new Map<string, NonNullable<typeof events>>(); for (const e of events ?? []) evByGroup.set(e.group_id, [...(evByGroup.get(e.group_id) ?? []), e]);
@@ -32,8 +37,13 @@ export default async function Sesion({ params, searchParams }: { params: Promise
         <div className="mt-2 flex gap-2"><Chip tone={s.significance === "major" ? "ok" : "neutral"}>{KIND_LABEL[s.kind] ?? s.kind}</Chip>{s.resets_learning && <Chip tone="amber">↻ reinicia aprendizaje</Chip>}<Chip>{s.group_count} {s.group_count === 1 ? "elemento tocado" : "elementos tocados"}</Chip></div>
       </div>
 
+      <Card title="Resultado del cambio">
+        <SessionResults wins={windows.get(id) ?? []} currency={acc?.currency ?? "MXN"} />
+        <div className="mt-4">{experiment ? <a className="ui-button ui-button-primary" href={`/experimentos?account=${s.account_id}${experiment.status === "borrador" ? `&editar=${experiment.id}#nueva-prueba` : `#prueba-${experiment.id}`}`}>Ver la prueba</a> : <form action={registerSessionAsExperiment}><input type="hidden" name="session_id" value={id} /><button className="ui-button ui-button-primary">Registrar como prueba</button></form>}</div>
+      </Card>
+
       <Card>
-        <div className="flex items-start gap-3"><h2 className="font-semibold">¿Por qué se hizo este cambio?</h2><a href={`/experimentos?account=${s.account_id}&session=${id}`} className="ml-auto rounded-xl border border-line px-3 py-1 text-sm hover:text-ink" title="Precarga las campañas tocadas; declaras hipótesis, criterio de éxito y presupuesto">Convertir en experimento →</a></div>
+        <div className="flex items-start gap-3"><h2 className="font-semibold">¿Por qué se hizo este cambio?</h2><a href={`/experimentos?account=${s.account_id}&session=${id}`} className="ml-auto rounded-xl border border-line px-3 py-1 text-sm hover:text-ink" title="Precarga las campañas tocadas; declaras hipótesis, criterio de éxito y presupuesto">Definir criterio a mano</a></div>
         <p className="text-sm text-muted">La bitácora sabe qué pasó; solo quien lo hizo sabe por qué. Una línea basta. Si es una prueba, di qué esperas ver y en cuánto tiempo.</p>
         {(notes ?? []).map(n => <blockquote key={n.id} className="mt-3 border-l-2 border-meta pl-3 text-[15px]"><b>{n.author_email.split("@")[0]}</b>: {n.reason}{n.hypothesis && <><br /><span className="text-muted">Hipótesis:</span> {n.hypothesis}</>}{n.success_criterion && <><br /><span className="text-muted">Criterio de éxito:</span> {n.success_criterion}</>}</blockquote>)}
         <form action={annotate} className="mt-3 grid gap-2 sm:grid-cols-2">

@@ -1,6 +1,7 @@
 import { LOCK_LABEL, RULE_ACTION_LABEL, type LockName, type RuleAction } from "@agentes-meta/core";
 import type { DailyReading, HoyAlert, HoyDecision, HoyProposal, HoySnapshot, Section } from "./hoy-view";
 import { presentAlert, type AlertRow } from "./alerts";
+import type { PresentedResult } from "./results";
 
 export type ReadResult<T> = { data: T; error: null } | { data: null; error: true };
 export type RealInsight = { date: string; spend: unknown; purchases: unknown; purchase_value: unknown; is_closed_day: boolean; fetched_at: string };
@@ -64,7 +65,8 @@ export function buildRealHoySnapshot(input: {
   account: { id: string; name: string; currency: string; timezone_name: string }; reportingDate: string; asOf: string;
   insights: ReadResult<RealInsight[]>; profile: ReadResult<RealProfile | null>; proposals: ReadResult<RealProposal[]>; decisions: ReadResult<RealDecision[]>;
   alerts: ReadResult<AlertRow[]>;
-  activity: ReadResult<{ id: string; actor_name: string | null; summary: string; started_at: string }[]>;
+  activity: ReadResult<{ id: string; actor_name: string | null; summary: string; started_at: string; result?: PresentedResult }[]>;
+  campaigns?: HoySnapshot["campaigns"]; evaluatingExperiments?: number;
   brake: ReadResult<RealBrake | null>; collector: ReadResult<RealRun | null>; strategist: ReadResult<RealRun | null>;
 }): HoySnapshot {
   const collector = input.collector.error ? null : input.collector.data;
@@ -78,6 +80,8 @@ export function buildRealHoySnapshot(input: {
     proposals: section(input.proposals, rows => rows.map(mapRealProposal)),
     alerts: section(input.alerts, rows => rows.map((row): HoyAlert => presentAlert(row, { accountId: input.account.id }))),
     decisions: section(input.decisions, rows => rows.map(mapDecision)),
-    activity: section(input.activity, rows => rows.map(row => ({ id: row.id, actor: row.actor_name ?? "Persona sin nombre", summary: row.summary, at: row.started_at }))),
+    activity: section(input.activity, rows => rows.map(row => ({ id: row.id, actor: row.actor_name ?? "Persona sin nombre", summary: row.summary, at: row.started_at, ...(row.result ? { result: row.result } : {}) }))),
+    ...(input.campaigns ? { campaigns: input.campaigns } : {}),
+    ...(input.evaluatingExperiments !== undefined ? { evaluatingExperiments: input.evaluatingExperiments } : {}),
   };
 }

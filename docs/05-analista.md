@@ -288,6 +288,8 @@ La navegación muestra **Pruebas** y mantiene la ruta `/experimentos`. El alta u
 
 El criterio exige umbral y presupuesto finitos mayores que cero, compras mínimas enteras positivas, duración entera de 1 a 90 días y fecha válida. El formulario conserva errores y permite completar borradores. El cálculo del analista no cambió: excluye el día del cambio y el día en curso; la fecha de lectura presentada es inicio + duración + 1.
 
+**Resultado de un cambio en la interfaz (7 de septiembre de 2026).** Bitácora, el detalle de sesión, Hoy y Pruebas muestran el resultado de cada cambio con un presentador único (`apps/web/lib/results.ts`, `presentResult`). Ventana principal: la más larga con estado `mature`; si no hay, la más larga `preliminary`; si no, `pending`. Etiquetas: `reading = up` → "Mejoró · ROAS +18 % (7 d)"; `down` → "Empeoró · ROAS −12 % (7 d)"; `flat` → "Sin cambio claro"; `agreement = mixed` → "Resultado mixto" (ámbar); `confidence = insufficient` → "Sin evidencia suficiente"; `pending` → "Esperando días completos". El porcentaje es `delta.roas_pct` (lo tocado, después contra antes). Una ventana preliminar añade "· preliminar" y nunca se pinta de verde ni rojo: solo ámbar hasta madurar. Debajo: días medidos de N, evidencia sólida/media/débil y la primera salvedad. Los estados internos (`mature`, `preliminary`, `high`, `medium`…) no aparecen en pantalla.
+
 Desde una sesión se conserva la hipótesis y las campañas de origen; revisa la fecha del cambio antes de iniciar. Desde anuncios se muestra el anuncio de origen, pero se evalúa su campaña, no un A/B de creativos. Alcance completo en [pruebas guiadas](15-pruebas-guiadas-codex.md).
 
 | Qué | Dónde |

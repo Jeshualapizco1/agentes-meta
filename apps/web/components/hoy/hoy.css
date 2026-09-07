@@ -96,3 +96,6 @@
   .hoy-detail-value dd { font-size: 21px; }
 }
 @media (forced-colors: active) { .hoy-dialog, .hoy-detail-value, .hoy-alert { border: 1px solid CanvasText; } }
+
+.hoy-attention-quiet { grid-row: auto; align-self: start; }
+.hoy-attention-quiet > header { margin-bottom: 10px; }

@@ -1,9 +1,10 @@
+import type { PresentedResult } from "@/lib/results";
 import Link from "next/link";
 import { Chip } from "./Chip";
 import { fmtTime, actorColor, initials, KIND_LABEL } from "@/lib/format";
 import { sessionHref } from "@/lib/navigation";
 export type Session = { id: string; account_id: string; actor_name: string; actor_kind: string; started_at: string; ended_at: string; kind: string; significance: string; resets_learning: boolean; summary: string; campaign_ids: string[]; group_count: number; event_count: number; annotation_count?: number };
-export function SessionRow({ s, accountName, returnTo = "/bitacora" }: { s: Session; accountName?: string; returnTo?: string }) {
+export function SessionRow({ s, result, accountName, returnTo = "/bitacora" }: { s: Session; result?: PresentedResult; accountName?: string; returnTo?: string }) {
   const isMeta = s.actor_kind === "meta";
   const color = isMeta ? "#a5b4fc" : actorColor(s.actor_name);
   return (
@@ -18,7 +19,8 @@ export function SessionRow({ s, accountName, returnTo = "/bitacora" }: { s: Sess
           {s.resets_learning && <Chip tone="amber" title="Este cambio reinicia la fase de aprendizaje">↻ reinicia aprendizaje</Chip>}
           {s.annotation_count ? <Chip tone="ok">razón anotada</Chip> : null}
         </div>
-        <p className="mt-1 text-[15px] leading-snug">{s.summary}</p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-[15px] leading-snug">{s.summary}</p>{result && <Chip tone={result.tone}>{result.label}</Chip>}</div>
+        {result && <p className="mt-1 text-xs text-muted">{result.detail}</p>}
         <div className="mt-1 flex gap-3 font-mono text-[11px] text-muted">
           <span>{s.group_count} {s.group_count === 1 ? "elemento" : "elementos"}</span>
           <Link href={sessionHref(s.id, s.account_id, returnTo)} className="text-meta hover:underline">ver detalle →</Link>

@@ -1,4 +1,21 @@
 import { isCalendarDate } from "./range";
+import { resultPercent, type PresentedResult, type ResultTone } from "./results";
+
+export type CampaignReading = { id: string; name: string; spend: number; purchases: number; roas: number | null; cpa: number | null; previousRoas: number | null; available: number; previousAvailable: number; kind: "protect" | "scale" | "observe"; targetRoas: number | null; breakevenRoas: number | null };
+export function presentCampaignTrend(row: Pick<CampaignReading, "roas" | "previousRoas" | "available" | "previousAvailable">): string {
+  if (row.available < 7) return `${row.available} de 7 días`;
+  if (row.previousAvailable < 7 || row.roas == null || row.previousRoas == null || row.previousRoas <= 0) return "—";
+  const pct = (row.roas / row.previousRoas - 1) * 100;
+  if (!Number.isFinite(pct)) return "—";
+  if (Math.round(Math.abs(pct)) === 0) return "=";
+  return `${pct > 0 ? "▲" : "▼"} ${resultPercent(pct)}`;
+}
+export function campaignRoasTone(row: CampaignReading): ResultTone {
+  if (row.available < 7 || row.roas == null || !(row.targetRoas != null && row.targetRoas > 0)) return "neutral";
+  if (row.roas >= row.targetRoas) return "ok";
+  if (!(row.breakevenRoas != null && row.breakevenRoas > 0)) return "neutral";
+  return row.roas >= row.breakevenRoas ? "amber" : "crit";
+}
 
 /** Contrato de presentación. No autoriza acciones ni reemplaza los candados del servidor. */
 export type ReadingState = "ready" | "partial" | "stale" | "error" | "loading";
@@ -26,7 +43,9 @@ export type HoySnapshot = {
   agent: { mode: "off" | "semi" | "auto" | "unknown"; execution: "simulation" | "live" | "unknown"; brake: "engaged" | "released" | "unknown"; brakeReason?: string;
     collectedAt: string | null; collection: "ok" | "error" | "running" | "unknown"; strategyAt: string | null };
   proposals: Section<HoyProposal[]>; alerts: Section<HoyAlert[]>; decisions: Section<HoyDecision[]>;
-  activity: Section<{ id: string; actor: string; summary: string; at: string }[]>;
+  activity: Section<{ id: string; actor: string; summary: string; at: string; result?: PresentedResult }[]>;
+  campaigns?: Section<CampaignReading[]>;
+  evaluatingExperiments?: number;
 };
 const DAY = 86_400_000;
 export const shiftCalendarDay = (date: string, offset: number): string => {

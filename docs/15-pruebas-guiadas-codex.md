@@ -32,6 +32,14 @@ El presupuesto disponible se lee paginado y los fallos de lectura bloquean el in
 
 Se consultaron las guías de Supabase para filtros de actualización y su changelog, y la guía del navegador para validar la interfaz. La validación autenticada real requiere la sesión del operador; no se fabricaron sesiones ni resultados.
 
+## Registrar un cambio ya hecho como prueba (1 clic) · 2026-09-07
+
+Desde el detalle de un cambio (`/sesion/[id]`) el botón **Registrar como prueba** crea una prueba ligada a esa sesión sin pasar por el asistente. Criterio por defecto: ROAS ≥ meta de la cuenta (si no hay meta, el equilibrio; si tampoco, 1), 10 compras mínimas, 7 días completos desde la fecha del cambio en la zona de la cuenta, campañas = las tocadas en la sesión, presupuesto = suma de los presupuestos diarios de esas campañas (o vacío). La hipótesis toma la anotación si existe; si no, "{persona} cambió: {resumen}". Si faltan campañas o fecha, queda como borrador y abre el asistente. Un mismo cambio nunca produce dos pruebas: la clave es determinista (UUID v5 de cuenta + sesión) y un segundo clic lleva a la prueba existente.
+
+**Regla del presupuesto de exploración:** una prueba registrada a partir de un cambio ya hecho **no** se descuenta del presupuesto de exploración ni se bloquea por él, porque no es gasto nuevo: documenta lo que ya está vivo en Meta. El presupuesto de exploración sigue aplicando a las pruebas nuevas creadas con el asistente. Consecuencia: "Disponible para pruebas" en la pantalla Pruebas cuenta solo las pruebas nuevas; las registradas desde un cambio aparecen en el mismo listado, con su resultado.
+
+El asistente sigue disponible como "Definir criterio a mano" para quien quiera otro umbral, ventana o presupuesto.
+
 ## Pendiente para el objetivo de 2×
 
 Fijar línea base durable y fecha objetivo, medir el avance agregado y completar una primera prueba real. Las comparaciones observacionales y el criterio declarado ayudan a decidir; no prueban causalidad ni garantizan duplicar el retorno. La meta global y el éxito de una prueba son conceptos distintos.

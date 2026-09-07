@@ -1,3 +1,5 @@
+import { presentResult } from "@/lib/results";
+import { loadSessionResults } from "@/lib/session-results";
 import { db, fetchAll } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { pageHref, sessionHref } from "@/lib/navigation";
@@ -32,6 +34,7 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
   const acc = (accounts ?? []).find(a => a.id === accountId);
   if (!acc) return <DataState kind="forbidden" title="Cuenta no disponible" action={<a className="ui-button ui-button-secondary" href="/hoy">Volver a Hoy</a>} />;
   const all = (exps ?? []) as Exp[];
+  const windows = await loadSessionResults(sb, all.flatMap(x => x.session_id ? [x.session_id] : []));
   const active = all.filter(x => x.status === "activo"), evaluating = all.filter(x => x.status === "evaluando"), drafts = all.filter(x => x.status === "borrador"), history = all.filter(x => ["graduado", "descartado", "cancelado"].includes(x.status));
   const budget = explorationBudget({ ceiling: prof?.daily_spend_ceiling != null ? Number(prof.daily_spend_ceiling) : null, pct: prof?.exploration_budget_pct != null ? Number(prof.exploration_budget_pct) : null, activeBudgets: [...active, ...evaluating].map(x => Number(x.budget ?? 0)), newBudget: 0 });
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: acc?.timezone_name ?? "America/Mexico_City", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -47,20 +50,24 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
   const activeCamps = (camps ?? []).filter(c => c.effective_status === "ACTIVE" || preIds.has(c.id as string));
 
   const ExpCard = ({ x, children }: { x: Exp; children?: React.ReactNode }) => {
+    const wins = x.session_id ? windows.get(x.session_id) : undefined;
+    const result = wins?.length ? presentResult(wins) : null;
     const left = daysLeft(x); const pr = PROPOSAL[x.proposed_verdict ?? "esperar"] ?? PROPOSAL.esperar!;
     return (
-      <li className="flex flex-col gap-2 border-t border-line py-3 first:border-t-0">
+      <li id={`prueba-${x.id}`} className="flex flex-col gap-2 border-t border-line py-3 first:border-t-0">
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone={x.status === "activo" ? "ok" : x.status === "evaluando" ? "amber" : x.status === "graduado" ? "ok" : x.status === "descartado" ? "crit" : "neutral"}>{({ activo: "En seguimiento", evaluando: "Por decidir", graduado: "Conservar", descartado: "No repetir", cancelado: "Cancelada", borrador: "Borrador" })[x.status]}</Chip>
           <b>{x.name}</b>
+          {result && <Chip tone={result.tone}>{result.label}</Chip>}
           {x.status === "activo" && left != null && left <= 3 && <Chip tone="amber">{left <= 0 ? "Esperando resultados" : `Faltan ${left} día(s)`}</Chip>}
           {(x.status === "activo" || x.status === "evaluando") && <Chip tone={pr.tone}>{pr.label}</Chip>}
           <span className="ml-auto font-mono text-[11px] text-muted">{shortCalendarDate(x.start_date)} – {shortCalendarDate(endOf(x))} · {x.window_days} d · {mxn0(x.budget)}/día</span>
         </div>
+        {result && <p className="text-xs text-muted">{result.detail}</p>}
         <p className="text-sm">{x.hypothesis || "Sin cambio descrito"}</p>
         <div className="my-2 grid grid-cols-3 gap-3 rounded-xl border bg-paper p-3 text-sm"><div><p className="text-xs text-muted">Resultado {x.metric?.toUpperCase()}</p><p className="font-semibold">{x.evaluation?.value == null ? "Pendiente" : Number(x.evaluation.value).toFixed(2)}</p></div><div><p className="text-xs text-muted">Meta</p><p className="font-semibold">{x.metric === "cpa" ? "≤" : "≥"} {x.threshold ?? "—"}</p></div><div><p className="text-xs text-muted">Compras / mínimo</p><p>{x.evaluation?.purchases ?? "—"} / {x.min_purchases}</p></div></div>
         <p className="font-mono text-[11px] text-muted">{(x.campaign_ids ?? []).map(id => nameOf.get(id) ?? id).join(" · ") || "Sin campaña vinculada"}{x.session_id && <> · <a href={sessionHref(x.session_id, accountId, pageHref("/experimentos", p))} className="text-meta">sesión de origen →</a></>}</p>
-        {x.evaluation?.verdict && <details className="text-sm"><summary className="cursor-pointer text-muted">Ver evidencia y comparación</summary><p className="mt-2 rounded-xl bg-paper p-3">{x.evaluation.verdict}</p></details>}
+        {x.evaluation?.verdict && <details open={["graduado", "descartado", "cancelado"].includes(x.status)} className="text-sm"><summary className="cursor-pointer text-muted">Ver evidencia y comparación</summary><p className="mt-2 rounded-xl bg-paper p-3">{x.evaluation.verdict}</p></details>}
         {x.verdict_reason && <p className="text-[13px]"><span className="text-muted">Veredicto de {x.decided_by?.split("@")[0]} ({x.decided_at ? fmtDay(x.decided_at).split(",")[0] : ""}):</span> {x.verdict_reason}</p>}
         {children}
       </li>
@@ -98,7 +105,7 @@ export default async function Experimentos({ searchParams }: { searchParams: Pro
         {active.length ? <ul className="flex flex-col">{active.map(x => <ExpCard key={x.id} x={x}><details className="text-sm"><summary className="cursor-pointer text-muted">Detener seguimiento</summary><form action={cancelExperiment} className="mt-3 flex flex-wrap gap-2"><input type="hidden" name="id" value={x.id} /><input name="reason" placeholder="Razón para cancelar" className="rounded-lg border border-line bg-paper px-2 py-1 text-sm" /><button className="rounded-xl border border-line px-3 py-1 text-sm">Cancelar</button></form></details></ExpCard>)}</ul> : <p className="text-sm text-muted">No hay pruebas en marcha. Prepara una arriba para empezar a medir.</p>}
       </Card>
       {drafts.length > 0 && <Card eyebrow="Sin activar" title={`Borradores (${drafts.length})`}><ul className="flex flex-col">{drafts.map(x => <ExpCard key={x.id} x={x}><div className="flex flex-wrap gap-2"><a className="ui-button ui-button-secondary" href={`/experimentos?${new URLSearchParams({ account: accountId, editar: x.id })}#nueva-prueba`}>Completar e iniciar</a><form action={cancelExperiment}><input type="hidden" name="id" value={x.id} /><button className="rounded-xl border border-line px-3 py-1 text-sm">Descartar borrador</button></form></div></ExpCard>)}</ul></Card>}
-      <details className="rounded-2xl border bg-surface p-5"><summary className="cursor-pointer font-semibold">Aprendizajes anteriores ({history.length})</summary><div className="mt-4">
+      <details open={history.length > 0} className="rounded-2xl border bg-surface p-5"><summary className="cursor-pointer font-semibold">Aprendizajes anteriores ({history.length})</summary><div className="mt-4">
         {history.length ? <ul className="flex flex-col">{history.map(x => <ExpCard key={x.id} x={x} />)}</ul> : <p className="text-sm text-muted">Tus decisiones aparecerán aquí al cerrar una prueba.</p>}
       </div></details>
     </div>
