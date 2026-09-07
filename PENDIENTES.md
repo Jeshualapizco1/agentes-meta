@@ -2,6 +2,20 @@
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
 
+## Acción → resultado y front sin lenguaje técnico — 2026-09-07 (tarde)
+
+Análisis de producto en [docs/16-analisis-producto-2026-09-07.md](docs/16-analisis-producto-2026-09-07.md). Tres bloques construidos por workers de Codex (GPT-5.6 Sol ×2, GPT-6 Astra) y auditados corriendo core, typecheck, pruebas y build.
+
+- [x] **Front sin lenguaje técnico (9f0e0e9):** capa de alertas humanizada (`apps/web/lib/alerts.ts`), Estado del sistema → "Estado de los datos" con detalle técnico plegado solo para administradores, las 12 pantallas revisadas. Guardia permanente `apps/web/tests/copy-lint.test.ts`: falla si vuelve a aparecer collector/analyst/corrida/dry run/fetch/Fase/docs//llaves/JSON en texto renderizado.
+- [x] **Alertas que se cierran solas (970a1d0):** cada agente cierra sus `*_failed` al recuperarse; techo, token y estado de cuenta se cierran cuando la condición pasa; una sola alerta abierta por tipo y cuenta con la cifra vigente (`sistema:recuperado`). La alerta vieja del 3 de septiembre se cerró a mano.
+- [x] **Cada cambio con su resultado (90036be):** presentador único (`apps/web/lib/results.ts`); chip de resultado por fila en Bitácora; "Resultado del cambio" al inicio del detalle de sesión; **Registrar como prueba en un clic** (criterio del perfil, sin pasar por presupuesto de exploración, sin duplicados); Hoy con tabla de campañas activas (ROAS contra meta, tendencia, qué hacer) y "Últimos cambios y su resultado"; resultado en cada prueba ligada a un cambio. Docs 05 y 15 actualizados.
+- [x] Verificación: core 115, agents 6, web 438 (39 nuevas), typecheck y build en verde. `tsconfig.tsbuildinfo` dejó de versionarse.
+- [ ] **Desplegar en Netlify** y revisar en el navegador con sesión real: Hoy (tabla de campañas), Bitácora (chips de resultado), una sesión (Resultado del cambio + Registrar como prueba), Estado de los datos. No hubo recorrido visual autenticado en esta sesión (extensión de Chrome desconectada).
+- [ ] **Registrar la primera prueba real** desde una sesión reciente con "Registrar como prueba" (la base sigue con cero pruebas).
+- [ ] Anotar la razón desde la propia fila de Bitácora, sin abrir el detalle (134 cambios sin razón).
+- [ ] Al cerrar y recrear la alerta de techo en cada pasada, `alerts` acumula hasta 4 filas cerradas por día mientras la condición persista; aceptable, pero si molesta en el detalle técnico, pasar a actualizar la fila abierta en lugar de recrearla.
+- Nota de entorno: los sandboxes de Codex no pudieron ejecutar vitest (`spawn EPERM`) ni escribir en `docs/`; la validación la corre el manager con `corepack pnpm` (pnpm no está en PATH).
+
 ## Plataforma orientada a pruebas — 2026-09-07
 
 - [x] Hoy simplificado: meta de ROAS del perfil, distancia al objetivo con lectura completa, acceso a oportunidades y pruebas; actividad técnica desplegable.
