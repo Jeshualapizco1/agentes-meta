@@ -13,3 +13,5 @@ data/
 apps/web/visual-dist/
 apps/web/visual-results/
 apps/web/playwright-report/
+*.tsbuildinfo
+apps/web/.codex-*-backup/
