@@ -1,6 +1,14 @@
 # PENDIENTES · agentes Meta
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
+## Cuestionario al dueño — 2026-09-07 (noche)
+
+- [x] **`docs/17-preguntas-al-dueno.md` (bfa2541):** todo lo que hasta hoy se dedujo del código o quedó esperando a Eduardo, en un solo documento para que lo decida Jeshua: quién decide, cómo trabajamos (autonomía, Codex, qué es "hecho", despliegue), números del negocio (ROAS de equilibrio 3.3 vs 2.5 vs 3.7 aritmético; meta 6 sin fecha), reglas de acción, pruebas, razones, interfaz, alertas, infraestructura y las 12 decisiones ya fijadas para confirmar.
+- [ ] **Jeshua contesta `docs/17`** en lenguaje natural. Las que desbloquean construcción: **1.1** (quién fija el criterio), **4.1** (si contesta `docs/06` él) y **4.8** (lista blanca: hoy vacía = el agente no puede tocar nada). Las que fijan proceso: 2.1 a 2.5.
+- [x] 2.2 quedó contestada el 2026-09-08 al iniciar sesión: Fable 5.1 es manager (plan, criterios, revisión); la implementación va a workers de Codex (GPT-6 Astra para lo difícil, GPT-5.6 Sol para rutina); toda entrega se audita corriendo lo real; inline solo tareas de menos de 2 llamadas.
+- [ ] Al recibir respuestas: transcribir cada una a su lugar (CLAUDE.md, Configuración, `rules`, `docs/06`, PENDIENTES) en un commit por bloque y regresar el diff.
+- [ ] Con 1.1, 4.1 y 4.8: primera regla de acción con generador y prueba, en semi y simulado.
+
 
 ## Acción → resultado y front sin lenguaje técnico — 2026-09-07 (tarde)
 
