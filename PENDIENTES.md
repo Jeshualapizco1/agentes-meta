@@ -1,6 +1,7 @@
 # PENDIENTES · agentes Meta
 
 Actualizar al final de cada sesión. Arriba lo más urgente.
+
 ## Cuestionario al dueño — 2026-09-07 (noche)
 
 - [x] **`docs/17-preguntas-al-dueno.md` (bfa2541):** todo lo que hasta hoy se dedujo del código o quedó esperando a Eduardo, en un solo documento para que lo decida Jeshua: quién decide, cómo trabajamos (autonomía, Codex, qué es "hecho", despliegue), números del negocio (ROAS de equilibrio 3.3 vs 2.5 vs 3.7 aritmético; meta 6 sin fecha), reglas de acción, pruebas, razones, interfaz, alertas, infraestructura y las 12 decisiones ya fijadas para confirmar.
